@@ -1,5 +1,9 @@
+import base64
+
+content = """
 import 'dart:math';
-import '../../domain/domain.dart';
+import '../../domain/entities/gallo.dart';
+import '../../domain/entities/compadres.dart';
 
 class ParGlobal {
   final Gallo galloA;
@@ -14,7 +18,7 @@ class ResultadoGlobal {
   final Map<int, List<ParGlobal>> matchings;
   final double maxDiferencia;
   final double sumaTotal;
-
+  
   const ResultadoGlobal({
     required this.asignacion,
     required this.matchings,
@@ -37,7 +41,8 @@ class GlobalMatchingOptimizer {
   bool _sonCompadres(int partidoId1, int partidoId2) {
     if (partidoId1 == partidoId2) return true;
     for (var c in compadres) {
-      if (c.bloquea(partidoId1, partidoId2)) {
+      if ((c.frente1Id == partidoId1 && c.frente2Id == partidoId2) ||
+          (c.frente1Id == partidoId2 && c.frente2Id == partidoId1)) {
         return true;
       }
     }
@@ -91,7 +96,7 @@ class GlobalMatchingOptimizer {
 
     const int maxIter = 10000;
     Random rnd = Random(12345);
-
+    
     for (int iter = 0; iter < maxIter; iter++) {
       int maxDiffIdx = -1;
       double maxDiff = -1;
@@ -103,8 +108,8 @@ class GlobalMatchingOptimizer {
         }
       }
 
-      if (maxDiff <= 55) break;
-
+      if (maxDiff <= 55) break; 
+      
       int swapIdx = rnd.nextInt(matchings.length);
       if (swapIdx == maxDiffIdx) continue;
 
@@ -114,15 +119,11 @@ class GlobalMatchingOptimizer {
       ParGlobal pA = ParGlobal(p1.galloA, p2.galloA);
       ParGlobal pB = ParGlobal(p1.galloB, p2.galloB);
 
-      if (!_sonCompadres(pA.galloA.partidoId, pA.galloB.partidoId) &&
+      if (!_sonCompadres(pA.galloA.partidoId, pA.galloB.partidoId) && 
           !_sonCompadres(pB.galloA.partidoId, pB.galloB.partidoId)) {
-        double newMax = pA.diferencia > pB.diferencia
-            ? pA.diferencia
-            : pB.diferencia;
-        double oldMax = p1.diferencia > p2.diferencia
-            ? p1.diferencia
-            : p2.diferencia;
-
+        double newMax = pA.diferencia > pB.diferencia ? pA.diferencia : pB.diferencia;
+        double oldMax = p1.diferencia > p2.diferencia ? p1.diferencia : p2.diferencia;
+        
         if (newMax < oldMax) {
           matchings[maxDiffIdx] = pA;
           matchings[swapIdx] = pB;
@@ -136,7 +137,7 @@ class GlobalMatchingOptimizer {
   ResultadoGlobal _distribuirEnRondas(List<ParGlobal> pares, int limit) {
     Map<int, List<ParGlobal>> result = {};
     Map<int, List<Gallo>> asignacionVacia = {};
-
+    
     double mD = 0.0;
     double sT = 0.0;
 
@@ -146,17 +147,16 @@ class GlobalMatchingOptimizer {
         result[column] = [];
       }
       result[column]!.add(pares[i]);
-
+      
       double d = pares[i].diferencia;
       sT += d;
       if (d > mD) mD = d;
     }
-
-    return ResultadoGlobal(
-      asignacion: asignacionVacia,
-      matchings: result,
-      maxDiferencia: mD,
-      sumaTotal: sT,
-    );
+    
+    return ResultadoGlobal(asignacion: asignacionVacia, matchings: result, maxDiferencia: mD, sumaTotal: sT);
   }
 }
+"""
+
+with open('lib/engine/matchmaking/global_optimizer.dart', 'wb') as f:
+    f.write(content.encode('utf-8'))

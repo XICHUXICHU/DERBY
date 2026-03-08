@@ -105,6 +105,35 @@ class ConstraintValidator {
     return errores;
   }
 
+  /// Valida que los gallos base solo aparezcan en la ronda base y viceversa.
+  ///
+  /// - [esRondaBase]: true si esta ronda es la ronda base.
+  /// - [rondaNumero]: número de la ronda (para mensajes de error).
+  List<String> validarGallosBase(
+    List<Enfrentamiento> enfrentamientos, {
+    required bool esRondaBase,
+    required int rondaNumero,
+  }) {
+    final errores = <String>[];
+    for (final e in enfrentamientos) {
+      for (final g in [e.galloA, e.galloB]) {
+        if (!esRondaBase && g.esBase) {
+          errores.add(
+            'Gallo base ${g.anillo}: solo en la ronda base se permiten '
+            'gallos base (ronda $rondaNumero).',
+          );
+        }
+        if (esRondaBase && !g.esBase) {
+          errores.add(
+            'Gallo ${g.anillo} NO es base pero está en la ronda base '
+            '(ronda $rondaNumero).',
+          );
+        }
+      }
+    }
+    return errores;
+  }
+
   /// Validación completa de una ronda nueva.
   ///
   /// [partidosDobles]: IDs de partidos que pelean doble en esta ronda.

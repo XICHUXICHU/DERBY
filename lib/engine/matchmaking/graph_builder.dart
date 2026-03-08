@@ -50,6 +50,10 @@ class GraphBuilder {
   /// Diferencia máxima de peso permitida en P.L. (g). 0 = sin límite.
   final double diferenciaMaxPeso;
 
+  /// Si true, no aplica el filtro de diferencia máxima de peso.
+  /// Usado en la ronda base donde los gallos base ya están emparejados por peso.
+  final bool esRondaBase;
+
   /// Penalización por cada repetición de enfrentamiento previo (gramos).
   /// Se suma al peso real de la arista para que el solver la desfavorezca.
   /// Calculado automáticamente como `diferenciaMaxPeso * 10 + 1` si > 0,
@@ -61,6 +65,7 @@ class GraphBuilder {
     Set<int> gallosUsados = const {},
     Map<(int, int), int> conteoEnfrentamientos = const {},
     this.diferenciaMaxPeso = 0.0,
+    this.esRondaBase = false,
   }) : _compadresSet = _buildCompadresSet(compadres),
        _gallosUsados = gallosUsados,
        _conteoEnfrentamientos = conteoEnfrentamientos,
@@ -130,9 +135,9 @@ class GraphBuilder {
         // RESTRICCIÓN 2: No enfrentar partidos compadres
         if (sonCompadres(a.partidoId, b.partidoId)) continue;
 
-        // RESTRICCIÓN 3: Diferencia máxima de peso
+        // RESTRICCIÓN 3: Diferencia máxima de peso (no aplica en ronda base)
         final diff = a.diferenciaAbsoluta(b);
-        if (diferenciaMaxPeso > 0 && diff > diferenciaMaxPeso) {
+        if (!esRondaBase && diferenciaMaxPeso > 0 && diff > diferenciaMaxPeso) {
           continue;
         }
 
@@ -170,12 +175,14 @@ class GraphBuilder {
         // Penalización creciente: 1ª repetición = pen*1, 2ª = pen*2, etc.
         // Esto hace que el solver prefiera rivales nuevos, y si debe
         // repetir, prefieriera pares con menos repeticiones.
-        respaldo.add(AristaGrafo(
-          galloA: arista.galloA,
-          galloB: arista.galloB,
-          peso: arista.peso,
-          penalizacion: _penalizacionPorRepeticion * veces,
-        ));
+        respaldo.add(
+          AristaGrafo(
+            galloA: arista.galloA,
+            galloB: arista.galloB,
+            peso: arista.peso,
+            penalizacion: _penalizacionPorRepeticion * veces,
+          ),
+        );
       } else {
         preferidas.add(arista);
       }

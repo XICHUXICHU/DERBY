@@ -78,6 +78,28 @@ class DerbyEngine {
       errores.addAll(_validator.validarPartido(partido, gallos));
     }
 
+    // Verificar gallos suficientes por partido para todas las rondas
+    final rondasPL = config.rondasTotales > 1 ? config.rondasTotales - 1 : 0;
+    for (final partido in partidos) {
+      if (partido.esComodin) continue;
+      final gallosPartido = gallos
+          .where((g) => g.partidoId == partido.id)
+          .toList();
+      final libres = gallosPartido.where((g) => !g.esBase).length;
+      final bases = gallosPartido.where((g) => g.esBase).length;
+      if (rondasPL > 0 && libres < rondasPL) {
+        errores.add(
+          'Partido ${partido.nombre} tiene $libres gallos P.L., '
+          'necesita al menos $rondasPL.',
+        );
+      }
+      if (config.rondasTotales > 1 && bases < 1) {
+        errores.add(
+          'Partido ${partido.nombre} no tiene gallo base para la ronda base.',
+        );
+      }
+    }
+
     // Verificar anillos únicos
     final anillos = <String>{};
     for (final g in gallos) {
@@ -200,7 +222,7 @@ class DerbyEngine {
     // 3b. Excluir partidos sin gallos PL disponibles para esta ronda.
     // Esto ocurre cuando un partido usó todos sus gallos P.L. en doble
     // peleas de rondas anteriores.
-    final partidosActivos = partidosActivosBase.where((pid) {
+    var partidosActivos = partidosActivosBase.where((pid) {
       return gallos.any(
         (g) =>
             g.partidoId == pid && !gallosYaPeleados.contains(g.id) && !g.esBase,
@@ -223,7 +245,34 @@ class DerbyEngine {
     print('  Gallos ya peleados: ${gallosYaPeleados.length} IDs');
     print('  Enfrentamientos previos partido↔partido: $conteoEnfrentamientos');
 
+    // 3c. Si no hay gallos PL activos, comprobar si es ronda base.
     if (partidosActivos.length < 2) {
+      final conBase = partidosActivosBase
+          .where(
+            (pid) => gallos.any(
+              (g) =>
+                  g.partidoId == pid &&
+                  !gallosYaPeleados.contains(g.id) &&
+                  g.esBase,
+            ),
+          )
+          .toSet();
+      if (conBase.length >= 2) {
+        print('  → RONDA BASE: gallos base de ${conBase.length} partidos');
+        final esImparBase = conBase.length % 2 != 0;
+        return _intentarMatching(
+          gallos: gallos,
+          compadres: compadres,
+          partidosActivos: conBase,
+          gallosYaPeleados: gallosYaPeleados,
+          conteoEnfrentamientos: conteoEnfrentamientos,
+          rondaNumero: rondaNumero,
+          partidosBye: const [],
+          partidosDobles: const [],
+          esRondaBase: true,
+          permitirSobrante: esImparBase,
+        );
+      }
       print('  ⛔ Menos de 2 partidos activos!');
       throw MatchingImposibleException(
         rondaNumero: rondaNumero,
@@ -269,31 +318,9 @@ class DerbyEngine {
     print('  esImpar=$esImpar, esRondaDoblePelea=$esRondaDoblePelea');
 
     if (esImpar) {
-      // ── CASO A: Doble pelea (rondas 1-2) ──────────────────────
-      if (esRondaDoblePelea) {
-        // Regla del juez (derby impar): usa el partido indicado por el juez,
-        // o como fallback el último registrado (mayor ID).
-        final preferido =
-            partidoDoblePreferidoId ??
-            partidosActivos.reduce((a, b) => a > b ? a : b);
-        print(
-          '  → CASO A: Intentando doble pelea (ronda $rondaNumero), preferencia=P$preferido',
-        );
-        return _intentarDoblePelea(
-          gallos: gallos,
-          compadres: compadres,
-          partidosActivos: partidosActivos,
-          gallosYaPeleados: gallosYaPeleados,
-          conteoEnfrentamientos: conteoEnfrentamientos,
-          rondaNumero: rondaNumero,
-          rondasPrevias: rondasPrevias,
-          partidoDoblePreferido: preferido,
-        );
-      }
-
-      // ── CASO B: Comodín (impar sin candidato doble) ──────────
-      // Regla del juez: se requiere un partido COMODÍN. NO BYE.
-      print('  → CASO B: Buscando comodín (ronda $rondaNumero)');
+      // ── CASO B: Comodín (prioridad sobre doble cuando disponible) ──────
+      // Regla del juez: si hay comodín activo, úsarlo para completar el par.
+      print('  → Buscando comodín (ronda $rondaNumero)');
       final comodinActivo = partidos.firstWhere(
         (p) => p.esComodin && p.estado == EstadoPartido.activo && !p.eliminado,
         orElse: () => const Partido(id: -1, nombre: ''),
@@ -317,6 +344,28 @@ class DerbyEngine {
           rondaNumero: rondaNumero,
           partidosBye: const [],
           partidosDobles: const [],
+        );
+      }
+
+      // ── CASO A: Doble pelea (no hay comodín disponible) ──────────────
+      if (esRondaDoblePelea) {
+        // Regla del juez (derby impar): usa el partido indicado por el juez,
+        // o como fallback el último registrado (mayor ID).
+        final preferido =
+            partidoDoblePreferidoId ??
+            partidosActivos.reduce((a, b) => a > b ? a : b);
+        print(
+          '  → CASO A: Intentando doble pelea (ronda $rondaNumero), preferencia=P$preferido',
+        );
+        return _intentarDoblePelea(
+          gallos: gallos,
+          compadres: compadres,
+          partidosActivos: partidosActivos,
+          gallosYaPeleados: gallosYaPeleados,
+          conteoEnfrentamientos: conteoEnfrentamientos,
+          rondaNumero: rondaNumero,
+          rondasPrevias: rondasPrevias,
+          partidoDoblePreferido: preferido,
         );
       }
 
@@ -580,39 +629,13 @@ class DerbyEngine {
       '    Resolviendo _solverDoble (fase 2: con respaldo, '
       '${todasAristas.length} aristas)...',
     );
-    ResultadoMatching resultado;
-    try {
-      resultado = _solverDoble(
-        aristas: todasAristas,
-        partidosActivos: partidosActivos,
-        partidoDobleId: partidoDobleId,
-        rondaNumero: rondaNumero,
-      );
-    } catch (e) {
-      if (e is MatchingImposibleException && config.diferenciaMaxPeso > 0) {
-        print(
-          '    ⚠️ Fase 2 doble falló. Reintentando sin límite de peso (diff mínima global)...',
-        );
-        final flexBuilder = GraphBuilder(
-          compadres: compadres,
-          gallosUsados: gallosYaPeleados,
-          conteoEnfrentamientos: conteoEnfrentamientos,
-          diferenciaMaxPeso: 0.0,
-        );
-        final flexGrafo = flexBuilder.construirGrafoPriorizado(todosGallos);
-        final flexAristas = [...flexGrafo.preferidas, ...flexGrafo.respaldo];
-        flexAristas.sort((a, b) => a.costoTotal.compareTo(b.costoTotal));
 
-        resultado = _solverDoble(
-          aristas: flexAristas,
-          partidosActivos: partidosActivos,
-          partidoDobleId: partidoDobleId,
-          rondaNumero: rondaNumero,
-        );
-      } else {
-        rethrow;
-      }
-    }
+    final resultado = _solverDoble(
+      aristas: todasAristas,
+      partidosActivos: partidosActivos,
+      partidoDobleId: partidoDobleId,
+      rondaNumero: rondaNumero,
+    );
 
     return _construirRondaDoble(
       resultado: resultado,
@@ -809,12 +832,13 @@ class DerbyEngine {
     required List<int> partidosBye,
     required List<int> partidosDobles,
     bool permitirSobrante = false,
+    bool esRondaBase = false,
   }) {
-    // 4. Seleccionar gallos PL disponibles (base nunca participa)
+    // 4. Seleccionar gallos disponibles (base en ronda base, libres en PL)
     final gallosDisponibles = gallos.where((g) {
       if (!partidosActivos.contains(g.partidoId)) return false;
       if (gallosYaPeleados.contains(g.id)) return false;
-      return !g.esBase; // Solo gallos libres
+      return esRondaBase ? g.esBase : !g.esBase;
     }).toList();
 
     print('    _intentarMatching(ronda=$rondaNumero, bye=$partidosBye)');
@@ -828,41 +852,18 @@ class DerbyEngine {
       gallosUsados: gallosYaPeleados,
       conteoEnfrentamientos: conteoEnfrentamientos,
       diferenciaMaxPeso: config.diferenciaMaxPeso,
+      esRondaBase: esRondaBase,
     );
 
     // 6. Resolver matching
     print('    Resolviendo matching normal...');
-    ResultadoMatching resultado;
-    try {
-      resultado = _solver.resolver(
-        gallosDisponibles: gallosDisponibles,
-        partidosActivos: partidosActivos,
-        graphBuilder: graphBuilder,
-        rondaNumero: rondaNumero,
-        permitirRepeticiones: config.permitirRepeticiones,
-      );
-    } catch (e) {
-      if (e is MatchingImposibleException && config.diferenciaMaxPeso > 0) {
-        print(
-          '    ⚠️ Matching imposible con diffMaxPeso=${config.diferenciaMaxPeso}g, reintentando sin límite de peso (diff mínima global)...',
-        );
-        final flexBuilder = GraphBuilder(
-          compadres: compadres,
-          gallosUsados: gallosYaPeleados,
-          conteoEnfrentamientos: conteoEnfrentamientos,
-          diferenciaMaxPeso: 0.0, // bypass param
-        );
-        resultado = _solver.resolver(
-          gallosDisponibles: gallosDisponibles,
-          partidosActivos: partidosActivos,
-          graphBuilder: flexBuilder,
-          rondaNumero: rondaNumero,
-          permitirRepeticiones: config.permitirRepeticiones,
-        );
-      } else {
-        rethrow;
-      }
-    }
+    final resultado = _solver.resolver(
+      gallosDisponibles: gallosDisponibles,
+      partidosActivos: partidosActivos,
+      graphBuilder: graphBuilder,
+      rondaNumero: rondaNumero,
+      permitirRepeticiones: config.permitirRepeticiones,
+    );
 
     print(
       '    Matching result: ${resultado.pares.length} pares, sinEmparejar=${resultado.partidosSinEmparejar}',
@@ -928,14 +929,13 @@ class DerbyEngine {
     return Ronda(
       numero: rondaNumero,
       enfrentamientos: enfrentamientos,
-      esRondaBase: false,
+      esRondaBase: esRondaBase,
       fechaCreacion: DateTime.now(),
       partidosBye: partidosBye,
       partidosDobles: partidosDobles,
     );
   }
 
-  /// Genera TODAS las rondas de una sola vez usando optimización global
   /// multi-ronda con criterio minimax (minimizar la diferencia máxima individual).
   ///
   /// Retorna lista de [Ronda] numeradas 1..numRondas.
@@ -971,17 +971,33 @@ class DerbyEngine {
 
     final esImpar = partidosActivos.length % 2 != 0;
 
-    // ── Decidir estrategia de impar upfront ──
-    // Regla del juez: NO BYE. Para impar, usar flujo secuencial
-    // con doble pelea por ronda. La optimización global solo maneja par.
+    // Optimización global solo para número par de partidos.
+    // Para impar, el flujo secuencial maneja doble pelea correctamente.
     if (esImpar) {
       throw MatchingImposibleException(
         rondaNumero: 1,
         gallosDisponibles: gallosPL.length,
         restriccionesActivas: 0,
+        detalle: 'Impar: usar flujo secuencial para doble pelea.',
+      );
+    }
+
+    // Verificar que numRondasPL es suficiente para usar todos los gallos PL.
+    // Si cada partido tiene más gallos PL que rondas disponibles, el optimizador
+    // global no puede distribuirlos correctamente (pondría varios por ronda).
+    final maxGalosPorPartido = <int, int>{};
+    for (final g in gallosPL) {
+      maxGalosPorPartido[g.partidoId] =
+          (maxGalosPorPartido[g.partidoId] ?? 0) + 1;
+    }
+    final maxPL = maxGalosPorPartido.values.fold(0, (a, b) => a > b ? a : b);
+    if (numRondasPL < maxPL) {
+      throw MatchingImposibleException(
+        rondaNumero: 1,
+        gallosDisponibles: gallosPL.length,
+        restriccionesActivas: 0,
         detalle:
-            'Optimización global no soporta número impar de partidos. '
-            'Use flujo secuencial con doble pelea.',
+            'numRondasPL=$numRondasPL < maxGalosPorPartido=$maxPL, usar flujo secuencial.',
       );
     }
 
@@ -1022,7 +1038,22 @@ class DerbyEngine {
 
     // ── Convert to Ronda objects ──
     final rondas = <Ronda>[];
-    for (var r = 0; r < numRondasPL; r++) {
+    final optimizerRounds = resultado.matchings.keys.isEmpty
+        ? 0
+        : resultado.matchings.keys.length;
+    // Validar que el optimizador produjo exactamente numRondasPL rondas.
+    // Si produce más o menos, usar flujo secuencial (fallback en ejecutarPrimerBloque/ejecutarTodas).
+    if (optimizerRounds != numRondasPL) {
+      throw MatchingImposibleException(
+        rondaNumero: 1,
+        gallosDisponibles: allPLGallos.length,
+        restriccionesActivas: 0,
+        detalle:
+            'Optimizador produjo $optimizerRounds rondas, se esperaban $numRondasPL.',
+      );
+    }
+    int limit = numRondasPL;
+    for (var r = 0; r < limit; r++) {
       final pares = resultado.matchings[r] ?? [];
       final enfrentamientos = <Enfrentamiento>[];
       for (var i = 0; i < pares.length; i++) {

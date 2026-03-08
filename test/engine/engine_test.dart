@@ -142,10 +142,9 @@ void main() {
     });
 
     test('prioriza aristas sin enfrentamiento previo', () {
-      final previos = <(int, int)>{(1, 2)};
       final builder = GraphBuilder(
         compadres: [],
-        enfrentamientosPrevios: previos,
+        conteoEnfrentamientos: {(1, 2): 1},
       );
       final gallos = [
         _gallo(1, 1, 2000),
@@ -314,7 +313,8 @@ void main() {
     test('detecta partido con gallos insuficientes', () {
       final validator = ConstraintValidator(compadres: []);
       final partido = _partido(1);
-      final gallos = [_gallo(1, 1, 2000), _gallo(2, 1, 2010)];
+      // Solo gallo base, sin libres → debe reportar error
+      final gallos = [_gallo(1, 1, 2000, esBase: true)];
 
       final errores = validator.validarPartido(partido, gallos);
       expect(errores, isNotEmpty);
@@ -1202,10 +1202,7 @@ void main() {
       }
 
       final engine = DerbyEngine(
-        config: const DerbyConfig(
-          rondasTotales: 4,
-          diferenciaMaxPeso: 500,
-        ),
+        config: const DerbyConfig(rondasTotales: 4, diferenciaMaxPeso: 500),
         compadres: [],
       );
 
@@ -1240,10 +1237,16 @@ void main() {
       final gallosUsados = <int>{};
       for (final ronda in rondas.where((r) => !r.esRondaBase)) {
         for (final e in ronda.enfrentamientos) {
-          expect(gallosUsados.add(e.galloA.id), isTrue,
-              reason: 'Gallo ${e.galloA.anillo} repetido');
-          expect(gallosUsados.add(e.galloB.id), isTrue,
-              reason: 'Gallo ${e.galloB.anillo} repetido');
+          expect(
+            gallosUsados.add(e.galloA.id),
+            isTrue,
+            reason: 'Gallo ${e.galloA.anillo} repetido',
+          );
+          expect(
+            gallosUsados.add(e.galloB.id),
+            isTrue,
+            reason: 'Gallo ${e.galloB.anillo} repetido',
+          );
         }
       }
     });
@@ -1365,8 +1368,11 @@ void main() {
           participantes.add(e.galloA.partidoId);
           participantes.add(e.galloB.partidoId);
         }
-        expect(participantes.length, 7,
-            reason: 'Ronda ${i + 1}: 7 partidos participan');
+        expect(
+          participantes.length,
+          7,
+          reason: 'Ronda ${i + 1}: 7 partidos participan',
+        );
       }
 
       // No BYE in any round
@@ -1732,41 +1738,43 @@ void main() {
       }
     });
 
-    test('ejecutarPrimerBloque generates only 2 PL rounds for 4-round derby',
-        () {
-      final partidos = List.generate(6, (i) => _partido(i + 1));
-      final gallos = <Gallo>[];
-      var gId = 1;
-      for (var p = 1; p <= 6; p++) {
-        gallos.add(_gallo(gId++, p, 2000.0 + p * 50));
-        gallos.add(_gallo(gId++, p, 2050.0 + p * 30));
-        gallos.add(_gallo(gId++, p, 2100.0 + p * 20));
-        gallos.add(_gallo(gId++, p, 2100, esBase: true));
-      }
+    test(
+      'ejecutarPrimerBloque generates only 2 PL rounds for 4-round derby',
+      () {
+        final partidos = List.generate(6, (i) => _partido(i + 1));
+        final gallos = <Gallo>[];
+        var gId = 1;
+        for (var p = 1; p <= 6; p++) {
+          gallos.add(_gallo(gId++, p, 2000.0 + p * 50));
+          gallos.add(_gallo(gId++, p, 2050.0 + p * 30));
+          gallos.add(_gallo(gId++, p, 2100.0 + p * 20));
+          gallos.add(_gallo(gId++, p, 2100, esBase: true));
+        }
 
-      final engine = DerbyEngine(
-        config: const DerbyConfig(rondasTotales: 4, diferenciaMaxPeso: 500),
-        compadres: [],
-      );
-      final sorteo = GenerarSorteo(engine);
+        final engine = DerbyEngine(
+          config: const DerbyConfig(rondasTotales: 4, diferenciaMaxPeso: 500),
+          compadres: [],
+        );
+        final sorteo = GenerarSorteo(engine);
 
-      final rondas = sorteo.ejecutarPrimerBloque(
-        partidos: partidos,
-        gallos: gallos,
-        compadres: [],
-      );
+        final rondas = sorteo.ejecutarPrimerBloque(
+          partidos: partidos,
+          gallos: gallos,
+          compadres: [],
+        );
 
-      // Should generate exactly 2 PL rounds, not all 3
-      expect(rondas.length, 2);
-      expect(rondas[0].numero, 1);
-      expect(rondas[1].numero, 2);
-      expect(rondas.every((r) => !r.esRondaBase), isTrue);
+        // Should generate exactly 2 PL rounds, not all 3
+        expect(rondas.length, 2);
+        expect(rondas[0].numero, 1);
+        expect(rondas[1].numero, 2);
+        expect(rondas.every((r) => !r.esRondaBase), isTrue);
 
-      // Each round should have 3 fights (6 partidos / 2)
-      for (final r in rondas) {
-        expect(r.enfrentamientos.length, 3);
-      }
-    });
+        // Each round should have 3 fights (6 partidos / 2)
+        for (final r in rondas) {
+          expect(r.enfrentamientos.length, 3);
+        }
+      },
+    );
 
     test('incremental flow: primer bloque + generar ronda 3 after results', () {
       final partidos = List.generate(6, (i) => _partido(i + 1));
@@ -1822,10 +1830,16 @@ void main() {
       final gallosPLUsados = <int>{};
       for (final r in [...primerBloque, ronda3]) {
         for (final e in r.enfrentamientos) {
-          expect(gallosPLUsados.contains(e.galloA.id), isFalse,
-              reason: 'Gallo ${e.galloA.id} reused');
-          expect(gallosPLUsados.contains(e.galloB.id), isFalse,
-              reason: 'Gallo ${e.galloB.id} reused');
+          expect(
+            gallosPLUsados.contains(e.galloA.id),
+            isFalse,
+            reason: 'Gallo ${e.galloA.id} reused',
+          );
+          expect(
+            gallosPLUsados.contains(e.galloB.id),
+            isFalse,
+            reason: 'Gallo ${e.galloB.id} reused',
+          );
           gallosPLUsados.add(e.galloA.id);
           gallosPLUsados.add(e.galloB.id);
         }
@@ -1888,13 +1902,22 @@ void main() {
         participantes.add(e.galloB.partidoId);
       }
       // Eliminated partido should NOT be in enfrentamientos
-      expect(participantes.contains(1), isFalse,
-          reason: 'Eliminated partido 1 should not fight');
+      expect(
+        participantes.contains(1),
+        isFalse,
+        reason: 'Eliminated partido 1 should not fight',
+      );
       // Comodín should enter → 8 total (7 active + comodín)
-      expect(participantes.contains(99), isTrue,
-          reason: 'Comodín should enter for odd count');
-      expect(ronda3.enfrentamientos.length, 4,
-          reason: '8 partidos (7+comodín) → 4 fights');
+      expect(
+        participantes.contains(99),
+        isTrue,
+        reason: 'Comodín should enter for odd count',
+      );
+      expect(
+        ronda3.enfrentamientos.length,
+        4,
+        reason: '8 partidos (7+comodín) → 4 fights',
+      );
     });
   });
 }

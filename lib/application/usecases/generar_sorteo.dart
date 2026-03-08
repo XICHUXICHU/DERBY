@@ -82,21 +82,17 @@ class GenerarSorteo {
               p.estado == EstadoPartido.activo && !p.eliminado && !p.esComodin,
         )
         .length;
-    final esImpar = numPartidosActivos % 2 != 0;
 
-    // Para impar, usar flujo secuencial (cada ronda decide su doble pelea
-    // con un partido distinto). La optimización global solo maneja par.
-    if (!esImpar) {
-      try {
-        return _engine.generarSorteoPLGlobal(
-          partidos: partidos,
-          gallos: gallosEfectivos,
-          compadres: compadres,
-          numRondasOverride: nRondas,
-        );
-      } catch (e) {
-        print('⚠️ Optimización global falló ($e), usando flujo secuencial...');
-      }
+    // Ahora optimización global (Tuums style) maneja tanto pares como impares!
+    try {
+      return _engine.generarSorteoPLGlobal(
+        partidos: partidos,
+        gallos: gallosEfectivos,
+        compadres: compadres,
+        numRondasOverride: nRondas,
+      );
+    } catch (e) {
+      print('⚠️ Optimización global falló ($e), usando flujo secuencial...');
     }
 
     // Flujo secuencial (impar, o fallback si global falló)
@@ -139,22 +135,32 @@ class GenerarSorteo {
         }
         return g;
       }).toList();
-      print('🐓 Gallo base promovido a P.L. para cuadrar peleas (ID: $galloBasePromovidoId)');
+      print(
+        '🐓 Gallo base promovido a P.L. para cuadrar peleas (ID: $galloBasePromovidoId)',
+      );
     }
 
     final rondasGeneradas = <Ronda>[];
 
     // ── Intentar optimización global para rondas P.L. ──
     try {
+      final bool tieneGallosBaseReales = gallosEfectivos.any((g) => g.esBase);
+      final int numPL = tieneGallosBaseReales
+          ? (_engine.config.rondasTotales > 1
+                ? _engine.config.rondasTotales - 1
+                : 1)
+          : _engine.config.rondasTotales;
+
       final rondasPL = _engine.generarSorteoPLGlobal(
         partidos: partidos,
         gallos: gallosEfectivos,
         compadres: compadres,
+        numRondasOverride: numPL,
       );
       rondasGeneradas.addAll(rondasPL);
 
-      // Generar ronda base (última) con método secuencial
-      if (_engine.config.rondasTotales > 1) {
+      // Si hay gallos base explícitos, los procesamos en la última ronda como dicta la tradición
+      if (tieneGallosBaseReales && _engine.config.rondasTotales > 1) {
         final rondaBase = _engine.generarRonda(
           partidos: partidos,
           gallos: gallosEfectivos,
@@ -175,15 +181,15 @@ class GenerarSorteo {
     // ── Fallback secuencial (ronda por ronda) ──
     rondasGeneradas.clear();
     for (var i = 1; i <= _engine.config.rondasTotales; i++) {
-        final ronda = _engine.generarRonda(
-          partidos: partidos,
-          gallos: gallosEfectivos,
-          compadres: compadres,
-          rondasPrevias: rondasGeneradas,
-          rondaNumero: i,
-          // Usar el partido doble preferido en la primera oportunidad de doble pelea
-          partidoDoblePreferidoId: partidoDoblePreferidoId,
-        );
+      final ronda = _engine.generarRonda(
+        partidos: partidos,
+        gallos: gallosEfectivos,
+        compadres: compadres,
+        rondasPrevias: rondasGeneradas,
+        rondaNumero: i,
+        // Usar el partido doble preferido en la primera oportunidad de doble pelea
+        partidoDoblePreferidoId: partidoDoblePreferidoId,
+      );
       rondasGeneradas.add(ronda);
     }
 

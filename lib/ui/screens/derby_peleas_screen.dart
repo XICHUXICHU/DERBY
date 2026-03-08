@@ -8,49 +8,43 @@ import '../../main.dart'
         compadresRepository;
 import '../../data/database/app_database.dart' show Derby;
 import '../../domain/domain.dart' as domain;
+import '../../application/usecases/generar_sorteo.dart';
 import '../../engine/derby_engine.dart';
 import '../reports/reporte_resultados_pdf.dart';
+import '../reports/reporte_ronda_sorteo_pdf.dart';
 
 // ═══════════════════════════════════════════════════════════════
 //  Constantes de estilo – Premium SaaS Dashboard
 // ═══════════════════════════════════════════════════════════════
 
 // -- Paleta profesional --
-const _kBgCanvas = Color(0xFFF3F4F6);     // fondo general gris muy claro
-const _kCardBg = Color(0xFFFFFFFF);        // cards blancas
-const _kAccent = Color(0xFF6B1C2A);        // vino institucional
-const _kAccentLight = Color(0xFFFBECEF);   // vino 5%
+const _kBgCanvas = Color(0xFFF3F4F6); // fondo general gris muy claro
+const _kCardBg = Color(0xFFFFFFFF); // cards blancas
+const _kAccent = Color(0xFF6B1C2A); // vino institucional
+const _kAccentLight = Color(0xFFFBECEF); // vino 5%
 
 // Resultados
-const _kGreen = Color(0xFF16A34A);         // verde elegante
-const _kGreenBg = Color(0xFFDCFCE7);       // verde fondo chip
-const _kRed = Color(0xFFDC2626);           // rojo elegante
-const _kRedBg = Color(0xFFFEE2E2);         // rojo fondo chip
-const _kAmber = Color(0xFFF59E0B);         // ámbar tablas
-const _kAmberBg = Color(0xFFFEF3C7);       // ámbar fondo chip
-const _kBlue = Color(0xFF2563EB);          // azul institucional
-const _kBlueBg = Color(0xFFDBEAFE);        // azul fondo
-const _kGrey = Color(0xFF6B7280);          // gris neutro
+const _kGreen = Color(0xFF16A34A); // verde elegante
+const _kGreenBg = Color(0xFFDCFCE7); // verde fondo chip
+const _kRed = Color(0xFFDC2626); // rojo elegante
+const _kRedBg = Color(0xFFFEE2E2); // rojo fondo chip
+const _kAmber = Color(0xFFF59E0B); // ámbar tablas
+const _kAmberBg = Color(0xFFFEF3C7); // ámbar fondo chip
+const _kBlue = Color(0xFF2563EB); // azul institucional
+const _kBlueBg = Color(0xFFDBEAFE); // azul fondo
+const _kGrey = Color(0xFF6B7280); // gris neutro
 const _kGreyBg = Color(0xFFF3F4F6);
 
 // Texto
-const _kTextPrimary = Color(0xFF111827);    // casi negro
-const _kTextSecondary = Color(0xFF6B7280);  // gris medio
-const _kTextTertiary = Color(0xFF9CA3AF);   // gris claro
-const _kDivider = Color(0xFFE5E7EB);       // separadores
+const _kTextPrimary = Color(0xFF111827); // casi negro
+const _kTextSecondary = Color(0xFF6B7280); // gris medio
+const _kTextTertiary = Color(0xFF9CA3AF); // gris claro
+const _kDivider = Color(0xFFE5E7EB); // separadores
 
-// Sombra suave reutilizable
+// Sombra reutilizable — contraste suficiente en Windows
 const _kCardShadow = [
-  BoxShadow(
-    color: Color(0x0A000000),
-    blurRadius: 10,
-    offset: Offset(0, 2),
-  ),
-  BoxShadow(
-    color: Color(0x06000000),
-    blurRadius: 4,
-    offset: Offset(0, 1),
-  ),
+  BoxShadow(color: Color(0x1A000000), blurRadius: 10, offset: Offset(0, 2)),
+  BoxShadow(color: Color(0x0F000000), blurRadius: 4, offset: Offset(0, 1)),
 ];
 
 /// Paleta de colores asignados a cada partido.
@@ -461,7 +455,10 @@ class _DerbyPeleasScreenState extends State<DerbyPeleasScreen> {
         icon: const Icon(Icons.bolt_rounded, size: 22),
         label: Text(
           label,
-          style: const TextStyle(fontWeight: FontWeight.w700, letterSpacing: 0.3),
+          style: const TextStyle(
+            fontWeight: FontWeight.w700,
+            letterSpacing: 0.3,
+          ),
         ),
         backgroundColor: _kAccent,
         foregroundColor: Colors.white,
@@ -697,6 +694,128 @@ class _DerbyPeleasScreenState extends State<DerbyPeleasScreen> {
     }
   }
 
+  // ── Acciones de reporte en AppBar ──────────────────────
+
+  /// Construye los botones que aparecen en la esquina superior derecha:
+  /// uno para el reporte completo y un menú desplegable para imprimir por ronda.
+  List<Widget> _buildAccionesReporte() {
+    return [
+      // ── PDF de resultados completos ─────────────────────
+      IconButton(
+        icon: const Icon(Icons.picture_as_pdf_rounded, size: 22),
+        tooltip: 'Reporte de resultados',
+        onPressed: _mostrarReporteResultados,
+      ),
+      // ── Imprimir por ronda ──────────────────────────────
+      PopupMenuButton<int>(
+        icon: const Icon(Icons.print_rounded, size: 22),
+        tooltip: 'Imprimir por ronda',
+        offset: const Offset(0, 48),
+        color: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        itemBuilder: (_) => [
+          const PopupMenuItem<int>(
+            enabled: false,
+            child: Text(
+              'IMPRIMIR POR RONDA',
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 0.8,
+                color: Color(0xFF6B1C2A),
+              ),
+            ),
+          ),
+          const PopupMenuDivider(),
+          for (var r = 1; r <= _rondasTotales; r++)
+            if (r <= _rondas.length)
+              PopupMenuItem<int>(
+                value: r,
+                child: Row(
+                  children: [
+                    Icon(
+                      r == _rondasTotales
+                          ? Icons.star_rounded
+                          : Icons.format_list_numbered_rounded,
+                      size: 18,
+                      color: const Color(0xFF6B1C2A),
+                    ),
+                    const SizedBox(width: 10),
+                    Text(
+                      r == _rondasTotales ? 'Ronda Base  (R$r)' : 'Ronda $r',
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    if (_rondas[r - 1].completa)
+                      const Icon(
+                        Icons.check_circle_rounded,
+                        size: 14,
+                        color: Color(0xFF16A34A),
+                      ),
+                  ],
+                ),
+              )
+            else
+              PopupMenuItem<int>(
+                enabled: false,
+                value: r,
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.lock_rounded,
+                      size: 16,
+                      color: Colors.grey,
+                    ),
+                    const SizedBox(width: 10),
+                    Text(
+                      r == _rondasTotales
+                          ? 'Ronda Base (pendiente)'
+                          : 'Ronda $r (pendiente)',
+                      style: const TextStyle(fontSize: 13, color: Colors.grey),
+                    ),
+                  ],
+                ),
+              ),
+        ],
+        onSelected: (rondaNum) {
+          final sorteo = _construirSorteoResultado();
+          if (sorteo == null) return;
+          ReporteRondaSorteoPdf(
+            sorteo: sorteo,
+          ).vistaPreviaRonda(context, rondaNum);
+        },
+      ),
+    ];
+  }
+
+  /// Construye un [SorteoResultado] a partir de los datos actuales de la pantalla.
+  domain.SorteoResultado? _construirSorteoResultado() {
+    if (_rows.isEmpty || _rondas.isEmpty) return null;
+
+    // Los partidos ordenados por fila = orden en _rows (por puntos/posición)
+    final partidos = _rows.map((r) => r.partido).toList();
+
+    final sorteoUseCase = GenerarSorteo(
+      DerbyEngine(
+        config: DerbyConfig(
+          diferenciaMaxPeso: widget.derby.diferenciaMaxPeso,
+          permitirRepeticiones: widget.derby.permitirRepeticiones,
+          rondasTotales: _rondasTotales,
+        ),
+        compadres: const [],
+      ),
+    );
+
+    return sorteoUseCase.construirResultadoVisual(
+      nombreDerby: widget.derby.nombre,
+      partidos: partidos,
+      rondas: _rondas,
+    );
+  }
+
   // ── Reporte de Resultados PDF ────────────────────────
 
   void _mostrarReporteResultados() {
@@ -929,9 +1048,7 @@ class _DerbyPeleasScreenState extends State<DerbyPeleasScreen> {
 
   Widget _buildSliverAppBar(ColorScheme cs) {
     final completadas = _rondasCompletadas;
-    final progreso = _rondasTotales > 0
-        ? completadas / _rondasTotales
-        : 0.0;
+    final progreso = _rondasTotales > 0 ? completadas / _rondasTotales : 0.0;
 
     return SliverAppBar(
       expandedHeight: 130,
@@ -940,16 +1057,14 @@ class _DerbyPeleasScreenState extends State<DerbyPeleasScreen> {
       foregroundColor: Colors.white,
       elevation: 0,
       actions: [
-        if (!_cargando && _rondas.isNotEmpty)
-          IconButton(
-            icon: const Icon(Icons.picture_as_pdf_rounded, size: 22),
-            tooltip: 'Reporte PDF',
-            onPressed: _mostrarReporteResultados,
-          ),
+        if (!_cargando && _rondas.isNotEmpty) ..._buildAccionesReporte(),
         if (_derbyFinalizado)
           IconButton(
-            icon: const Icon(Icons.emoji_events_rounded,
-                color: Color(0xFFFFD700), size: 24),
+            icon: const Icon(
+              Icons.emoji_events_rounded,
+              color: Color(0xFFFFD700),
+              size: 24,
+            ),
             tooltip: 'Ver Campe\u00f3n',
             onPressed: _mostrarCampeon,
           ),
@@ -985,7 +1100,9 @@ class _DerbyPeleasScreenState extends State<DerbyPeleasScreen> {
                     children: [
                       Container(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 10, vertical: 4),
+                          horizontal: 10,
+                          vertical: 4,
+                        ),
                         decoration: BoxDecoration(
                           color: Colors.white.withValues(alpha: 0.18),
                           borderRadius: BorderRadius.circular(20),
@@ -1000,10 +1117,12 @@ class _DerbyPeleasScreenState extends State<DerbyPeleasScreen> {
                                 borderRadius: BorderRadius.circular(2),
                                 child: LinearProgressIndicator(
                                   value: progreso,
-                                  backgroundColor:
-                                      Colors.white.withValues(alpha: 0.2),
-                                  valueColor:
-                                      const AlwaysStoppedAnimation(Colors.white),
+                                  backgroundColor: Colors.white.withValues(
+                                    alpha: 0.2,
+                                  ),
+                                  valueColor: const AlwaysStoppedAnimation(
+                                    Colors.white,
+                                  ),
                                 ),
                               ),
                             ),
@@ -1022,7 +1141,9 @@ class _DerbyPeleasScreenState extends State<DerbyPeleasScreen> {
                       const SizedBox(width: 10),
                       Container(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 10, vertical: 4),
+                          horizontal: 10,
+                          vertical: 4,
+                        ),
                         decoration: BoxDecoration(
                           color: Colors.white.withValues(alpha: 0.18),
                           borderRadius: BorderRadius.circular(20),
@@ -1040,16 +1161,23 @@ class _DerbyPeleasScreenState extends State<DerbyPeleasScreen> {
                         const SizedBox(width: 10),
                         Container(
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 10, vertical: 4),
+                            horizontal: 10,
+                            vertical: 4,
+                          ),
                           decoration: BoxDecoration(
-                            color: const Color(0xFFFFD700).withValues(alpha: 0.25),
+                            color: const Color(
+                              0xFFFFD700,
+                            ).withValues(alpha: 0.25),
                             borderRadius: BorderRadius.circular(20),
                           ),
                           child: const Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Icon(Icons.emoji_events_rounded,
-                                  color: Color(0xFFFFD700), size: 14),
+                              Icon(
+                                Icons.emoji_events_rounded,
+                                color: Color(0xFFFFD700),
+                                size: 14,
+                              ),
                               SizedBox(width: 4),
                               Text(
                                 'FINALIZADO',
@@ -1126,21 +1254,44 @@ class _DerbyPeleasScreenState extends State<DerbyPeleasScreen> {
     return AnimatedContainer(
       duration: const Duration(milliseconds: 300),
       curve: Curves.easeOut,
-      margin: const EdgeInsets.only(bottom: 10),
+      margin: const EdgeInsets.only(bottom: 14),
       decoration: BoxDecoration(
         color: _kCardBg,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(18),
         boxShadow: _kCardShadow,
         border: isChampion
-            ? Border.all(color: const Color(0xFFFFD700), width: 1.5)
-            : Border.all(color: _kDivider, width: 0.5),
+            ? Border.all(color: const Color(0xFFFFD700), width: 2.0)
+            : Border.all(color: _kDivider, width: 1.0),
       ),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(16),
-        child: Column(
+        borderRadius: BorderRadius.circular(18),
+        child: Stack(
           children: [
-            _buildCardHeader(row, partyColor, isChampion),
-            _buildRoundsRow(row, partyColor),
+            // Contenido principal (determina la altura del Stack)
+            Padding(
+              padding: const EdgeInsets.only(left: 6),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _buildCardHeader(row, partyColor, isChampion),
+                  Divider(
+                    height: 1,
+                    thickness: 1,
+                    color: _kDivider,
+                    indent: 10,
+                    endIndent: 10,
+                  ),
+                  _buildRoundsRow(row, partyColor),
+                ],
+              ),
+            ),
+            // Barra lateral de color (Positioned, se estira a la altura del Stack)
+            Positioned(
+              left: 0,
+              top: 0,
+              bottom: 0,
+              child: Container(width: 6, color: partyColor),
+            ),
           ],
         ),
       ),
@@ -1149,45 +1300,47 @@ class _DerbyPeleasScreenState extends State<DerbyPeleasScreen> {
 
   // ── Card Header (name + pts) ───────────────────────────
 
-  Widget _buildCardHeader(
-      _PeleaRow row, Color partyColor, bool isChampion) {
+  Widget _buildCardHeader(_PeleaRow row, Color partyColor, bool isChampion) {
+    final medalColors = [
+      const Color(0xFFFFD700), // oro
+      const Color(0xFFB0BEC5), // plata
+      const Color(0xFFBF8C55), // bronce
+    ];
+    final isMedal = row.posicion <= 3;
+    final medalColor = isMedal ? medalColors[row.posicion - 1] : null;
+
     return Padding(
-      padding: const EdgeInsets.fromLTRB(14, 14, 14, 8),
+      padding: const EdgeInsets.fromLTRB(16, 18, 16, 14),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          // Position badge
+          // Position badge — círculo sólido con color de medalla o partido
           Container(
-            width: 36,
-            height: 36,
+            width: 46,
+            height: 46,
             decoration: BoxDecoration(
-              color: row.posicion <= 3
-                  ? partyColor.withValues(alpha: 0.12)
-                  : _kGreyBg,
-              borderRadius: BorderRadius.circular(10),
+              color: isMedal
+                  ? medalColor!.withValues(alpha: 0.18)
+                  : partyColor.withValues(alpha: 0.12),
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: isMedal ? medalColor! : partyColor,
+                width: 2.0,
+              ),
             ),
             child: Center(
               child: Text(
                 '${row.posicion}',
                 style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w800,
-                  color: row.posicion <= 3 ? partyColor : _kTextSecondary,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w900,
+                  color: isMedal ? medalColor! : partyColor,
                 ),
               ),
             ),
           ),
-          const SizedBox(width: 12),
-          // Color accent bar
-          Container(
-            width: 4,
-            height: 32,
-            decoration: BoxDecoration(
-              color: partyColor,
-              borderRadius: BorderRadius.circular(2),
-            ),
-          ),
-          const SizedBox(width: 10),
-          // Name
+          const SizedBox(width: 14),
+          // Name + responsable
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -1198,10 +1351,10 @@ class _DerbyPeleasScreenState extends State<DerbyPeleasScreen> {
                       child: Text(
                         row.partido.nombre.toUpperCase(),
                         style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w800,
+                          fontSize: 18,
+                          fontWeight: FontWeight.w900,
                           color: _kTextPrimary,
-                          letterSpacing: 0.3,
+                          letterSpacing: 0.4,
                         ),
                         overflow: TextOverflow.ellipsis,
                         maxLines: 1,
@@ -1209,35 +1362,42 @@ class _DerbyPeleasScreenState extends State<DerbyPeleasScreen> {
                     ),
                     if (isChampion)
                       const Padding(
-                        padding: EdgeInsets.only(left: 6),
+                        padding: EdgeInsets.only(left: 8),
                         child: Icon(
                           Icons.emoji_events_rounded,
                           color: Color(0xFFFFD700),
-                          size: 18,
+                          size: 22,
                         ),
                       ),
                   ],
                 ),
+                const SizedBox(height: 3),
                 if (row.partido.responsable != null &&
                     row.partido.responsable!.isNotEmpty)
                   Text(
                     row.partido.responsable!,
                     style: const TextStyle(
-                      fontSize: 12,
-                      color: _kTextTertiary,
+                      fontSize: 13,
+                      color: _kTextSecondary,
                     ),
                     overflow: TextOverflow.ellipsis,
-                  ),
+                  )
+                else
+                  const SizedBox(height: 2),
               ],
             ),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: 12),
           // Points badge
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
             decoration: BoxDecoration(
               color: row.puntos > 0 ? _kAccent : _kGreyBg,
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(
+                color: row.puntos > 0 ? _kAccent : _kDivider,
+                width: 1.5,
+              ),
             ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -1245,21 +1405,22 @@ class _DerbyPeleasScreenState extends State<DerbyPeleasScreen> {
                 Text(
                   '${row.puntos}',
                   style: TextStyle(
-                    fontSize: 22,
+                    fontSize: 26,
                     fontWeight: FontWeight.w900,
                     color: row.puntos > 0 ? Colors.white : _kTextTertiary,
                     height: 1,
                   ),
                 ),
+                const SizedBox(height: 2),
                 Text(
                   'PTS',
                   style: TextStyle(
-                    fontSize: 9,
-                    fontWeight: FontWeight.w700,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w800,
                     color: row.puntos > 0
-                        ? Colors.white.withValues(alpha: 0.7)
+                        ? Colors.white.withValues(alpha: 0.75)
                         : _kTextTertiary,
-                    letterSpacing: 1,
+                    letterSpacing: 1.5,
                   ),
                 ),
               ],
@@ -1274,12 +1435,12 @@ class _DerbyPeleasScreenState extends State<DerbyPeleasScreen> {
 
   Widget _buildRoundsRow(_PeleaRow row, Color partyColor) {
     return SizedBox(
-      height: 100,
+      height: 136,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.fromLTRB(14, 0, 14, 12),
+        padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
         itemCount: _rondasTotales,
-        separatorBuilder: (_, __) => const SizedBox(width: 8),
+        separatorBuilder: (_, __) => const SizedBox(width: 10),
         itemBuilder: (_, r) => _buildRondaCell(row, r + 1, partyColor),
       ),
     );
@@ -1292,48 +1453,75 @@ class _DerbyPeleasScreenState extends State<DerbyPeleasScreen> {
     final infos = _infoMap[(row.partido.id, rondaNum)];
     final bool tienePelea =
         infos != null && infos.isNotEmpty && resultado != null;
-    final bool pendiente = resultado == '?'
-        || (resultado != null && resultado.contains('|') && resultado.contains('?'));
+    final bool pendiente =
+        resultado == '?' ||
+        (resultado != null &&
+            resultado.contains('|') &&
+            resultado.contains('?'));
     final bool bloqueada = pendiente && !_rondaHabilitada(rondaNum);
+    final esBase = rondaNum == _rondasTotales;
+
+    final borderColor = bloqueada
+        ? _kTextTertiary.withValues(alpha: 0.35)
+        : pendiente
+        ? _kBlue.withValues(alpha: 0.6)
+        : tienePelea
+        ? _kDivider
+        : _kDivider.withValues(alpha: 0.5);
+    final borderWidth = pendiente && !bloqueada ? 2.0 : 1.0;
 
     return Opacity(
-      opacity: bloqueada ? 0.5 : 1.0,
+      opacity: bloqueada ? 0.45 : 1.0,
       child: Container(
-        width: 210,
+        width: 230,
         decoration: BoxDecoration(
-          color: tienePelea ? _kBgCanvas : Colors.transparent,
+          color: tienePelea
+              ? (pendiente && !bloqueada
+                    ? _kBlueBg.withValues(alpha: 0.25)
+                    : _kBgCanvas)
+              : Colors.transparent,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: bloqueada
-                ? _kTextTertiary.withValues(alpha: 0.3)
-                : pendiente
-                    ? _kBlue.withValues(alpha: 0.4)
-                    : _kDivider,
-            width: pendiente && !bloqueada ? 1.5 : 0.5,
-          ),
+          border: Border.all(color: borderColor, width: borderWidth),
         ),
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-          Text(
-            rondaNum == _rondasTotales ? 'BASE' : 'R$rondaNum',
-            style: TextStyle(
-              fontSize: 9,
-              fontWeight: FontWeight.w700,
-              color: bloqueada
-                ? _kTextTertiary
-                : pendiente
-                    ? _kBlue
-                    : _kTextTertiary,
-              letterSpacing: 0.8,
+            // Etiqueta de ronda con fondo si es activa
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(
+                color: esBase
+                    ? _kAccent.withValues(alpha: 0.12)
+                    : (pendiente && !bloqueada
+                          ? _kBlue.withValues(alpha: 0.12)
+                          : _kGreyBg),
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Text(
+                esBase ? 'BASE' : 'RONDA $rondaNum',
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w800,
+                  color: esBase
+                      ? _kAccent
+                      : (pendiente && !bloqueada ? _kBlue : _kTextSecondary),
+                  letterSpacing: 1.0,
+                ),
+              ),
             ),
-          ),
-          const SizedBox(height: 4),
-          Expanded(
-            child: _buildRondaContent(row, rondaNum, resultado, infos, partyColor),
-          ),
-        ],
-      ),
+            const SizedBox(height: 6),
+            Expanded(
+              child: _buildRondaContent(
+                row,
+                rondaNum,
+                resultado,
+                infos,
+                partyColor,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1356,18 +1544,19 @@ class _DerbyPeleasScreenState extends State<DerbyPeleasScreen> {
     if (resultado == 'BYE') {
       return Center(
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
           decoration: BoxDecoration(
             color: _kGreyBg,
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: _kDivider, width: 1.0),
           ),
           child: const Text(
             'BYE',
             style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w700,
-              color: _kTextTertiary,
-              letterSpacing: 1,
+              fontSize: 13,
+              fontWeight: FontWeight.w800,
+              color: _kTextSecondary,
+              letterSpacing: 1.5,
             ),
           ),
         ),
@@ -1378,17 +1567,18 @@ class _DerbyPeleasScreenState extends State<DerbyPeleasScreen> {
     if (resultado == '\u2014') {
       return Center(
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
           decoration: BoxDecoration(
             color: _kGreyBg,
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: _kDivider, width: 1.0),
           ),
           child: const Text(
-            'DESC.',
+            'DESCANSA',
             style: TextStyle(
-              fontSize: 10,
-              fontWeight: FontWeight.w600,
-              color: _kTextTertiary,
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              color: _kTextSecondary,
               letterSpacing: 0.5,
             ),
           ),
@@ -1408,15 +1598,26 @@ class _DerbyPeleasScreenState extends State<DerbyPeleasScreen> {
         children: [
           for (var i = 0; i < infos.length; i++) ...[
             if (i > 0) const SizedBox(height: 2),
-            _buildMatchupLine(row.partido.id, rondaNum, infos[i], i,
-                partyColor, compact: true),
+            _buildMatchupLine(
+              row.partido.id,
+              rondaNum,
+              infos[i],
+              i,
+              partyColor,
+              compact: true,
+            ),
           ],
         ],
       );
     }
 
     return _buildMatchupLine(
-        row.partido.id, rondaNum, infos.first, 0, partyColor);
+      row.partido.id,
+      rondaNum,
+      infos.first,
+      0,
+      partyColor,
+    );
   }
 
   // ── Matchup line ──────────────────────────────────────
@@ -1432,52 +1633,96 @@ class _DerbyPeleasScreenState extends State<DerbyPeleasScreen> {
     final rivalColor = _colorMap[info.rivalPartidoId] ?? _kGrey;
     final hasResult = info.resultado != null;
     final label = hasResult ? _resultadoLabel(info) : '?';
+    final rivalNombre =
+        _partidos
+            .where((p) => p.id == info.rivalPartidoId)
+            .map((p) => p.nombre)
+            .firstOrNull ??
+        '';
 
-    return Row(
+    return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        Flexible(
-          child: _galloTag(info.galloPropio.anillo, partyColor, compact: compact),
-        ),
-        const SizedBox(width: 3),
-        hasResult
-            ? _resultChip(label, compact: compact)
-            : _pendingChip(partidoId, rondaNum, enfIdx,
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Flexible(
+              child: _galloTag(
+                info.galloPropio.anillo,
+                partyColor,
                 compact: compact,
-                habilitado: _rondaHabilitada(rondaNum)),
-        const SizedBox(width: 3),
-        Flexible(
-          child: _galloTag(info.galloRival.anillo, rivalColor,
-              compact: compact, subtle: true),
+              ),
+            ),
+            const SizedBox(width: 4),
+            hasResult
+                ? _resultChip(label, compact: compact)
+                : _pendingChip(
+                    partidoId,
+                    rondaNum,
+                    enfIdx,
+                    compact: compact,
+                    habilitado: _rondaHabilitada(rondaNum),
+                  ),
+            const SizedBox(width: 4),
+            Flexible(
+              child: _galloTag(
+                info.galloRival.anillo,
+                rivalColor,
+                compact: compact,
+                subtle: true,
+              ),
+            ),
+          ],
         ),
+        if (!compact) ...[
+          const SizedBox(height: 4),
+          Text(
+            'vs ${rivalNombre.toUpperCase()}',
+            style: const TextStyle(
+              fontSize: 9,
+              fontWeight: FontWeight.w600,
+              color: _kTextTertiary,
+              letterSpacing: 0.3,
+            ),
+            overflow: TextOverflow.ellipsis,
+            maxLines: 1,
+          ),
+        ],
       ],
     );
   }
 
   // ── Gallo tag ─────────────────────────────────────────
 
-  Widget _galloTag(String anillo, Color color,
-      {bool compact = false, bool subtle = false}) {
-    final fs = compact ? 8.0 : 10.0;
-    final px = compact ? 4.0 : 6.0;
-    final py = compact ? 2.0 : 3.0;
+  Widget _galloTag(
+    String anillo,
+    Color color, {
+    bool compact = false,
+    bool subtle = false,
+  }) {
+    final fs = compact ? 11.0 : 13.0;
+    final px = compact ? 7.0 : 9.0;
+    final py = compact ? 3.0 : 5.0;
 
     return Container(
       padding: EdgeInsets.symmetric(horizontal: px, vertical: py),
       decoration: BoxDecoration(
         color: subtle
             ? color.withValues(alpha: 0.10)
-            : color.withValues(alpha: 0.15),
-        borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: color.withValues(alpha: 0.3), width: 0.5),
+            : color.withValues(alpha: 0.16),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: color.withValues(alpha: subtle ? 0.35 : 0.55),
+          width: 1.5,
+        ),
       ),
       child: Text(
         anillo,
         style: TextStyle(
           fontSize: fs,
-          fontWeight: FontWeight.w700,
+          fontWeight: FontWeight.w900,
           color: color,
-          letterSpacing: 0.2,
+          letterSpacing: 0.3,
         ),
         overflow: TextOverflow.ellipsis,
         maxLines: 1,
@@ -1508,29 +1753,23 @@ class _DerbyPeleasScreenState extends State<DerbyPeleasScreen> {
         fg = _kGrey;
     }
 
-    final size = compact ? 20.0 : 28.0;
-    final fs = compact ? 10.0 : 14.0;
+    final size = compact ? 22.0 : 32.0;
+    final fs = compact ? 11.0 : 15.0;
 
     return Container(
       width: size,
       height: size,
       decoration: BoxDecoration(
         color: bg,
-        borderRadius: BorderRadius.circular(compact ? 5 : 8),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x08000000),
-            blurRadius: 4,
-            offset: Offset(0, 1),
-          ),
-        ],
+        borderRadius: BorderRadius.circular(compact ? 6 : 9),
+        border: Border.all(color: fg.withValues(alpha: 0.5), width: 1.5),
       ),
       child: Center(
         child: Text(
           label,
           style: TextStyle(
             fontSize: fs,
-            fontWeight: FontWeight.w800,
+            fontWeight: FontWeight.w900,
             color: fg,
           ),
         ),
@@ -1540,21 +1779,26 @@ class _DerbyPeleasScreenState extends State<DerbyPeleasScreen> {
 
   // ── Pending chip (clickable) ──────────────────────────
 
-  Widget _pendingChip(int partidoId, int rondaNum, int enfIdx,
-      {bool compact = false, bool habilitado = true}) {
-    final size = compact ? 20.0 : 28.0;
-    final fs = compact ? 10.0 : 14.0;
+  Widget _pendingChip(
+    int partidoId,
+    int rondaNum,
+    int enfIdx, {
+    bool compact = false,
+    bool habilitado = true,
+  }) {
+    final size = compact ? 22.0 : 32.0;
+    final fs = compact ? 11.0 : 15.0;
 
     final Color chipBg = habilitado ? _kBlueBg : _kGreyBg;
     final Color chipFg = habilitado ? _kBlue : _kTextTertiary;
     final Color borderColor = habilitado
-        ? _kBlue.withValues(alpha: 0.5)
+        ? _kBlue.withValues(alpha: 0.7)
         : _kDivider;
 
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        borderRadius: BorderRadius.circular(compact ? 5 : 8),
+        borderRadius: BorderRadius.circular(compact ? 6 : 9),
         onTap: habilitado
             ? () => _registrarResultado(partidoId, rondaNum, enfIdx)
             : () {
@@ -1575,8 +1819,8 @@ class _DerbyPeleasScreenState extends State<DerbyPeleasScreen> {
           height: size,
           decoration: BoxDecoration(
             color: chipBg,
-            borderRadius: BorderRadius.circular(compact ? 5 : 8),
-            border: Border.all(color: borderColor, width: 1.5),
+            borderRadius: BorderRadius.circular(compact ? 6 : 9),
+            border: Border.all(color: borderColor, width: 2.0),
           ),
           child: Center(
             child: habilitado
@@ -1584,7 +1828,7 @@ class _DerbyPeleasScreenState extends State<DerbyPeleasScreen> {
                     '?',
                     style: TextStyle(
                       fontSize: fs,
-                      fontWeight: FontWeight.w800,
+                      fontWeight: FontWeight.w900,
                       color: chipFg,
                     ),
                   )
@@ -1594,7 +1838,6 @@ class _DerbyPeleasScreenState extends State<DerbyPeleasScreen> {
       ),
     );
   }
-
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -1766,9 +2009,7 @@ class _ResultadoDialog extends StatelessWidget {
               const SizedBox(height: 16),
               TextButton(
                 onPressed: () => Navigator.pop(context),
-                style: TextButton.styleFrom(
-                  foregroundColor: _kTextSecondary,
-                ),
+                style: TextButton.styleFrom(foregroundColor: _kTextSecondary),
                 child: const Text('Cancelar'),
               ),
             ],
@@ -1812,10 +2053,7 @@ class _ResultadoDialog extends StatelessWidget {
         const SizedBox(height: 4),
         Text(
           '${gallo.pesoGramos.toStringAsFixed(0)}g',
-          style: const TextStyle(
-            fontSize: 11,
-            color: _kTextTertiary,
-          ),
+          style: const TextStyle(fontSize: 11, color: _kTextTertiary),
         ),
       ],
     );
@@ -1839,10 +2077,7 @@ class _ResultadoDialog extends StatelessWidget {
           label,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
-          style: const TextStyle(
-            fontWeight: FontWeight.w700,
-            fontSize: 13,
-          ),
+          style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
         ),
         style: ElevatedButton.styleFrom(
           backgroundColor: bg,

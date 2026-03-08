@@ -307,11 +307,11 @@ class ReporteEstiloPdf {
       color: _kNegro,
     );
 
-    // Anchos: # (25), Partido (150), Rondas repartidas, Puntos (50)
+    // Anchos: # (25), Partido (150), Rondas repartidas, Puntos (45)
     // Landscape letter: ~730pt usables
     const filaWidth = 25.0;
     const partidoWidth = 150.0;
-    const puntosWidth = 50.0;
+    const puntosWidth = 45.0;
     final rondaWidth =
         (730.0 - filaWidth - partidoWidth - puntosWidth) / nRondas;
 
@@ -431,64 +431,127 @@ class ReporteEstiloPdf {
       );
     }
 
+    // ── Estilos ─────────────────────────────────────────
     final anilloPropioStyle = pw.TextStyle(
-      font: fontRegular,
-      fontSize: 9,
-      color: _kNegro,
-    );
-    final vsStyle = pw.TextStyle(font: fontBold, fontSize: 8, color: _kNegro);
-    final filaRivalStyle = pw.TextStyle(
       font: fontBold,
-      fontSize: 7,
-      color: PdfColor.fromHex('#D84315'), // rojo-naranja para la fila
+      fontSize: 10,
+      color: _kNegro,
     );
     final anilloRivalStyle = pw.TextStyle(
       font: fontBold,
-      fontSize: 8,
+      fontSize: 10,
       color: _kAzulRival,
     );
-    final difStyle = pw.TextStyle(
+    final vsStyle = pw.TextStyle(
       font: fontLight,
-      fontSize: 7,
-      color: PdfColor.fromHex('#757575'),
+      fontSize: 6,
+      color: _kGrisTexto,
+      letterSpacing: 0.5,
+    );
+    final filaStyle = pw.TextStyle(
+      font: fontBold,
+      fontSize: 6,
+      color: PdfColor.fromHex('#B71C1C'),
+    );
+    final nombreRivalStyle = pw.TextStyle(
+      font: fontRegular,
+      fontSize: 6.5,
+      color: _kAzulRival,
+      letterSpacing: 0.2,
     );
 
-    // Si hay doble pelea (2 enfrentamientos en la misma ronda), apilar ambos
+    // ── Construir una tarjeta por enfrentamiento ─────────
     final widgets = <pw.Widget>[];
     for (var idx = 0; idx < rondas.length; idx++) {
       final ronda = rondas[idx];
-      if (idx > 0) widgets.add(pw.SizedBox(height: 3));
+      if (idx > 0) {
+        widgets.add(
+          pw.Container(
+            margin: const pw.EdgeInsets.symmetric(vertical: 3),
+            height: 0.5,
+            color: PdfColor.fromHex('#DDDDDD'),
+          ),
+        );
+      }
 
-      // Calcular diferencia de peso
       final dif = (ronda.pesoPropio - ronda.pesoRival).abs();
-      final difStr = '${dif.toStringAsFixed(0)}g';
+      final difStr = dif.toStringAsFixed(0);
+      final rivalNombre = ronda.nombrePartidoRival.toUpperCase();
 
       widgets.add(
         pw.Column(
           mainAxisAlignment: pw.MainAxisAlignment.center,
+          crossAxisAlignment: pw.CrossAxisAlignment.center,
           children: [
+            // ── Fila de anillos ──────────────────────────
             pw.Row(
               mainAxisAlignment: pw.MainAxisAlignment.center,
-              crossAxisAlignment: pw.CrossAxisAlignment.end,
+              crossAxisAlignment: pw.CrossAxisAlignment.center,
               children: [
-                // Anillo propio
+                // Gallo propio (negro, bold)
                 pw.Text(ronda.anilloPropio, style: anilloPropioStyle),
-                pw.SizedBox(width: 6),
-                // VS
-                pw.Text('VS', style: vsStyle),
-                pw.SizedBox(width: 6),
-                // Fila rival (superscript-style, arriba) + anillo rival (abajo)
+                pw.SizedBox(width: 4),
+                // Separador visual "vs"
+                pw.Padding(
+                  padding: const pw.EdgeInsets.only(bottom: 1),
+                  child: pw.Text('vs', style: vsStyle),
+                ),
+                pw.SizedBox(width: 4),
+                // Rival: fila numerica + anillo
                 pw.Column(
-                  crossAxisAlignment: pw.CrossAxisAlignment.start,
+                  crossAxisAlignment: pw.CrossAxisAlignment.center,
                   children: [
-                    pw.Text('${ronda.filaPartidoRival}', style: filaRivalStyle),
+                    pw.Text('(${ronda.filaPartidoRival})', style: filaStyle),
                     pw.Text(ronda.anilloRival, style: anilloRivalStyle),
                   ],
                 ),
               ],
             ),
-            pw.SizedBox(height: 1),
-            pw.Text('dif $difStr', style: difStyle),
+            pw.SizedBox(height: 2),
+            // ── Nombre del contrincante ──────────────────
+            pw.Text(
+              rivalNombre,
+              style: nombreRivalStyle,
+              textAlign: pw.TextAlign.center,
+            ),
+            pw.SizedBox(height: 3),
+            // ── Diferencial de peso — píldora vino ───────
+            pw.Container(
+              padding: const pw.EdgeInsets.symmetric(
+                horizontal: 8,
+                vertical: 2,
+              ),
+              decoration: pw.BoxDecoration(
+                color: PdfColor.fromHex('#F5F5F5'),
+                borderRadius: pw.BorderRadius.circular(3),
+                border: pw.Border.all(
+                  color: PdfColor.fromHex('#CCCCCC'),
+                  width: 0.5,
+                ),
+              ),
+              child: pw.Row(
+                mainAxisSize: pw.MainAxisSize.min,
+                children: [
+                  pw.Text(
+                    'dif  ',
+                    style: pw.TextStyle(
+                      font: fontLight,
+                      fontSize: 6.5,
+                      color: _kGrisTexto,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                  pw.Text(
+                    '$difStr g',
+                    style: pw.TextStyle(
+                      font: fontBold,
+                      fontSize: 8,
+                      color: _kNegro,
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ],
         ),
       );

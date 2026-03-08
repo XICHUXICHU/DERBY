@@ -14,6 +14,8 @@ import '../../engine/derby_engine.dart';
 import '../../application/usecases/generar_sorteo.dart';
 import '../reports/reporte_anillos_pdf.dart';
 import '../reports/reporte_estilo_pdf.dart';
+import '../reports/reporte_ronda_sorteo_pdf.dart';
+import '../reports/reporte_compadres_pdf.dart';
 import '../widgets/dialog_impar_config.dart';
 import 'partido_form_screen.dart';
 import 'derby_peleas_screen.dart';
@@ -354,8 +356,66 @@ class _DerbyGridScreenState extends State<DerbyGridScreen> {
 
   // ── Reporte PDF ──────────────────────────────────────
 
-  void _imprimirReporte(String opcion) {
-    // Construir mapa de gallos por partido (reutiliza _rows)
+  Future<void> _imprimirReporte(String opcion) async {
+    if (opcion == 'sorteo_rondas') {
+      await _imprimirRondaSorteo();
+      return;
+    }
+
+    final esCompadres = opcion.contains('_compadres');
+
+    if (esCompadres) {
+      final idsCompadres = _compadresMap.keys
+          .where((id) => _compadresMap[id]!.isNotEmpty)
+          .toSet();
+      if (idsCompadres.isEmpty) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('No hay equipos con compadres registrados.'),
+          ),
+        );
+        return;
+      }
+
+      final targetRows = _rows
+          .where((r) => idsCompadres.contains(r.partido.id))
+          .toList();
+      final partidos = targetRows.map((r) => r.partido).toList();
+
+      // Building compadres map and row numbers map
+      final Map<int, List<Partido>> compadresPorPartido = {};
+      final Map<int, int> partidoFila = {};
+
+      for (int i = 0; i < _rows.length; i++) {
+        partidoFila[_rows[i].partido.id] = i + 1;
+      }
+
+      for (final r in targetRows) {
+        final cIds = _compadresMap[r.partido.id] ?? {};
+        compadresPorPartido[r.partido.id] = _rows
+            .where((or) => cIds.contains(or.partido.id))
+            .map((or) => or.partido)
+            .toList();
+      }
+
+      final reporte = ReporteCompadresPdf(
+        nombreDerby: _derbyActual.nombre,
+        fecha: DateTime.now(),
+        partidos: partidos,
+        compadresPorPartido: compadresPorPartido,
+        partidoFila: partidoFila,
+      );
+
+      if (opcion.startsWith('preview_')) {
+        reporte.vistaPrevia(context);
+      } else if (opcion.startsWith('print_')) {
+        reporte.imprimir(context);
+      }
+      return;
+    }
+
+    // Default rings (hoja de anillos) report
     final partidos = _rows.map((r) => r.partido).toList();
     final gallosPorPartido = <int, List<GalloEntry>>{};
     for (final r in _rows) {
@@ -372,20 +432,120 @@ class _DerbyGridScreenState extends State<DerbyGridScreen> {
       gallosPorPartido: gallosPorPartido,
     );
 
-    switch (opcion) {
-      case 'preview_datos':
-        reporte.vistaPrevia(context, ModoReporte.conDatos);
-        break;
-      case 'preview_limpio':
-        reporte.vistaPrevia(context, ModoReporte.limpio);
-        break;
-      case 'print_datos':
-        reporte.imprimir(context, ModoReporte.conDatos);
-        break;
-      case 'print_limpio':
-        reporte.imprimir(context, ModoReporte.limpio);
-        break;
+    final modo = opcion.contains('datos')
+        ? ModoReporte.conDatos
+        : ModoReporte.limpio;
+
+    if (opcion.startsWith('preview_')) {
+      reporte.vistaPrevia(context, modo);
+    } else if (opcion.startsWith('print_')) {
+      reporte.imprimir(context, modo);
     }
+  }
+
+  /// Carga el sorteo guardado en BD y muestra selector de ronda para imprimir.
+  Future<void> _imprimirRondaSorteo() async {
+    final domRondas = await rondaRepository.listarHidratadasPorDerby(
+      _derbyActual.id,
+    );
+    if (domRondas.isEmpty) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No hay sorteo guardado para este derby.'),
+        ),
+      );
+      return;
+    }
+
+    final domPartidos = _rows
+        .map(
+          (r) => domain.Partido(
+            id: r.partido.id,
+            nombre: r.partido.nombre,
+            responsable: r.partido.responsable,
+            telefono: r.partido.telefono,
+            puntos: r.partido.puntos,
+            eliminado: r.partido.eliminado,
+            depositoPagado: r.partido.depositoPagado,
+            depositoCantidad: r.partido.depositoCantidad,
+            esComodin: r.partido.esComodin,
+          ),
+        )
+        .toList();
+    final sorteoUseCase = GenerarSorteo(
+      DerbyEngine(
+        config: DerbyConfig(
+          rondasTotales: _derbyActual.rondasTotales,
+          diferenciaMaxPeso: _derbyActual.diferenciaMaxPeso,
+          permitirRepeticiones: _derbyActual.permitirRepeticiones,
+        ),
+        compadres: const [],
+      ),
+    );
+    final resultado = sorteoUseCase.construirResultadoVisual(
+      nombreDerby: _derbyActual.nombre,
+      partidos: domPartidos,
+      rondas: domRondas,
+    );
+
+    if (!mounted) return;
+    _mostrarSelectorRondaImprimir(resultado);
+  }
+
+  /// Diálogo para elegir qué ronda imprimir del sorteo guardado.
+  void _mostrarSelectorRondaImprimir(domain.SorteoResultado resultado) {
+    showDialog<int>(
+      context: context,
+      builder: (ctx) {
+        final cs = Theme.of(ctx).colorScheme;
+        return AlertDialog(
+          icon: Icon(Icons.print_rounded, color: cs.primary, size: 36),
+          title: const Text('Imprimir ronda del sorteo'),
+          content: SizedBox(
+            width: 300,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text(
+                  'Selecciona la ronda que deseas imprimir:',
+                  style: TextStyle(fontSize: 13),
+                ),
+                const SizedBox(height: 12),
+                ...List.generate(resultado.rondasGeneradas, (i) {
+                  final r = i + 1;
+                  final esBase = r == resultado.rondasGeneradas;
+                  return ListTile(
+                    dense: true,
+                    leading: Icon(
+                      esBase ? Icons.star_rounded : Icons.filter_list_rounded,
+                      color: cs.primary,
+                      size: 20,
+                    ),
+                    title: Text(
+                      esBase ? 'Ronda Base (R$r)' : 'Ronda $r',
+                      style: const TextStyle(fontSize: 13),
+                    ),
+                    onTap: () => Navigator.pop(ctx, r),
+                  );
+                }),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Cancelar'),
+            ),
+          ],
+        );
+      },
+    ).then((rondaNum) {
+      if (rondaNum == null || !mounted) return;
+      ReporteRondaSorteoPdf(
+        sorteo: resultado,
+      ).vistaPreviaRonda(context, rondaNum);
+    });
   }
 
   void _showContextMenu(Offset globalPos, Partido p) {
@@ -1079,6 +1239,73 @@ class _DerbyGridScreenState extends State<DerbyGridScreen> {
                 ReporteEstiloPdf(sorteo: resultado).vistaPrevia(context);
               },
             ),
+            // ── Imprimir por ronda ──────────────────────
+            PopupMenuButton<int>(
+              tooltip: 'Imprimir una ronda',
+              style: ButtonStyle(
+                backgroundColor: WidgetStateProperty.all(
+                  Theme.of(ctx).colorScheme.secondaryContainer,
+                ),
+                foregroundColor: WidgetStateProperty.all(
+                  Theme.of(ctx).colorScheme.onSecondaryContainer,
+                ),
+              ),
+              itemBuilder: (_) => [
+                const PopupMenuItem<int>(
+                  enabled: false,
+                  child: Text(
+                    'IMPRIMIR POR RONDA',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                ),
+                const PopupMenuDivider(),
+                for (var r = 1; r <= resultado.rondasGeneradas; r++)
+                  PopupMenuItem<int>(
+                    value: r,
+                    child: Row(
+                      children: [
+                        Icon(
+                          r == resultado.rondasGeneradas
+                              ? Icons.star_rounded
+                              : Icons.filter_list_rounded,
+                          size: 16,
+                          color: Theme.of(ctx).colorScheme.primary,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          r == resultado.rondasGeneradas
+                              ? 'Ronda Base (R$r)'
+                              : 'Ronda $r',
+                          style: const TextStyle(fontSize: 13),
+                        ),
+                      ],
+                    ),
+                  ),
+              ],
+              onSelected: (rondaNum) {
+                Navigator.pop(ctx);
+                ReporteRondaSorteoPdf(
+                  sorteo: resultado,
+                ).vistaPreviaRonda(context, rondaNum);
+              },
+              child: const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.print_rounded, size: 18),
+                    SizedBox(width: 6),
+                    Text('Por Ronda'),
+                    SizedBox(width: 4),
+                    Icon(Icons.arrow_drop_down, size: 18),
+                  ],
+                ),
+              ),
+            ),
             FilledButton.icon(
               icon: const Icon(Icons.save, size: 18),
               label: const Text('Guardar Sorteo'),
@@ -1185,9 +1412,20 @@ class _DerbyGridScreenState extends State<DerbyGridScreen> {
           if (!_cargando && _rows.isNotEmpty)
             PopupMenuButton<String>(
               icon: const Icon(Icons.print),
-              tooltip: 'Imprimir hoja de anillos',
+              tooltip: 'Imprimir',
               onSelected: (val) => _imprimirReporte(val),
               itemBuilder: (_) => [
+                const PopupMenuItem(
+                  enabled: false,
+                  child: Text(
+                    'HOJA DE ANILLOS',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                ),
                 const PopupMenuItem(
                   value: 'preview_datos',
                   child: ListTile(
@@ -1218,6 +1456,54 @@ class _DerbyGridScreenState extends State<DerbyGridScreen> {
                   child: ListTile(
                     leading: Icon(Icons.print_outlined),
                     title: Text('Imprimir formato limpio'),
+                    dense: true,
+                  ),
+                ),
+                const PopupMenuDivider(),
+                const PopupMenuItem(
+                  enabled: false,
+                  child: Text(
+                    'SORTEO POR RONDA',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                ),
+                const PopupMenuItem(
+                  value: 'sorteo_rondas',
+                  child: ListTile(
+                    leading: Icon(Icons.filter_list_rounded),
+                    title: Text('Imprimir una ronda...'),
+                    dense: true,
+                  ),
+                ),
+                const PopupMenuDivider(),
+                const PopupMenuItem(
+                  enabled: false,
+                  child: Text(
+                    'EQUIPOS CON COMPADRES',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                ),
+                const PopupMenuItem(
+                  value: 'preview_compadres_datos',
+                  child: ListTile(
+                    leading: Icon(Icons.people_alt_outlined),
+                    title: Text('Vista previa con datos'),
+                    dense: true,
+                  ),
+                ),
+                const PopupMenuItem(
+                  value: 'print_compadres_datos',
+                  child: ListTile(
+                    leading: Icon(Icons.print),
+                    title: Text('Imprimir con datos'),
                     dense: true,
                   ),
                 ),
