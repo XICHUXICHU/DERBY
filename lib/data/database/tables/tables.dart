@@ -4,37 +4,27 @@ import 'package:drift/drift.dart';
 class Derbys extends Table {
   IntColumn get id => integer().autoIncrement()();
   TextColumn get nombre => text().withLength(min: 1, max: 100)();
-  DateTimeColumn get fechaCreacion =>
-      dateTime().withDefault(currentDateAndTime)();
+  DateTimeColumn get fechaCreacion => dateTime().withDefault(currentDateAndTime)();
   IntColumn get rondasTotales => integer().withDefault(const Constant(4))();
   IntColumn get puntosVictoria => integer().withDefault(const Constant(1))();
   IntColumn get puntosEmpate => integer().withDefault(const Constant(0))();
   IntColumn get puntosDerrota => integer().withDefault(const Constant(0))();
   IntColumn get posicionesPremio => integer().withDefault(const Constant(3))();
-  TextColumn get estado =>
-      text().withDefault(const Constant('configuracion'))();
+  TextColumn get estado => text().withDefault(const Constant('configuracion'))();
 
   // ── Configuración de pesos (v3) ──
   /// Peso mínimo aceptado para gallos P.L. (gramos).
   RealColumn get pesoMinimo => real().withDefault(const Constant(1800.0))();
-
   /// Peso máximo aceptado para gallos P.L. (gramos).
   RealColumn get pesoMaximo => real().withDefault(const Constant(2500.0))();
-
   /// Peso específico del gallo base (gramos). 0 = sin restricción.
   RealColumn get pesoGalloBase => real().withDefault(const Constant(0.0))();
-
   /// En derbys de peso libre, ¿se pueden repetir contrincantes?
-  BoolColumn get permitirRepeticiones =>
-      boolean().withDefault(const Constant(false))();
-
+  BoolColumn get permitirRepeticiones => boolean().withDefault(const Constant(false))();
   /// Diferencia máxima de peso permitida en peleas P.L. (gramos). 0 = sin límite.
-  RealColumn get diferenciaMaxPeso =>
-      real().withDefault(const Constant(80.0))();
-
+  RealColumn get diferenciaMaxPeso => real().withDefault(const Constant(80.0))();
   /// Validación estricta: si true, lanza error si no hay solución completa.
-  BoolColumn get validacionEstricta =>
-      boolean().withDefault(const Constant(true))();
+  BoolColumn get validacionEstricta => boolean().withDefault(const Constant(true))();
 }
 
 /// Tabla de Partidos.
@@ -47,10 +37,8 @@ class Partidos extends Table {
   TextColumn get estado => text().withDefault(const Constant('activo'))();
   IntColumn get puntos => integer().withDefault(const Constant(0))();
   BoolColumn get eliminado => boolean().withDefault(const Constant(false))();
-  BoolColumn get depositoPagado =>
-      boolean().withDefault(const Constant(false))();
+  BoolColumn get depositoPagado => boolean().withDefault(const Constant(false))();
   RealColumn get depositoCantidad => real().withDefault(const Constant(0.0))();
-
   /// True si es un partido comodín (entra cuando hay impar post-eliminación).
   BoolColumn get esComodin => boolean().withDefault(const Constant(false))();
 }
@@ -86,12 +74,9 @@ class Rondas extends Table {
   IntColumn get derbyId => integer().references(Derbys, #id)();
   IntColumn get numero => integer()();
   BoolColumn get esRondaBase => boolean().withDefault(const Constant(false))();
-  DateTimeColumn get fechaCreacion =>
-      dateTime().withDefault(currentDateAndTime)();
-
+  DateTimeColumn get fechaCreacion => dateTime().withDefault(currentDateAndTime)();
   /// IDs de partidos con BYE, separados por comas. Ejemplo: "3,7".
   TextColumn get byePartidos => text().withDefault(const Constant(''))();
-
   /// IDs de partidos con doble pelea, separados por comas. Ejemplo: "5".
   TextColumn get doblesPartidos => text().withDefault(const Constant(''))();
 }
@@ -103,6 +88,5 @@ class Enfrentamientos extends Table {
   IntColumn get galloAId => integer().references(Gallos, #id)();
   IntColumn get galloBId => integer().references(Gallos, #id)();
   RealColumn get diferenciaPeso => real()();
-  TextColumn get resultado =>
-      text().nullable()(); // ganoA, ganoB, empate, noPeleada
+  TextColumn get resultado => text().nullable()(); // ganoA, ganoB, empate, noPeleada
 }

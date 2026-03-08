@@ -1,0 +1,674 @@
+diff --git a/lib/application/usecases/generar_sorteo.dart b/lib/application/usecases/generar_sorteo.dart
+index c52bad9..2f1d1a4 100644
+--- a/lib/application/usecases/generar_sorteo.dart
++++ b/lib/application/usecases/generar_sorteo.dart
+@@ -1,19 +1,497 @@
++import 'dart:math' show max, Random, exp;
++
+ import '../../domain/entities/gallo.dart';
+ import '../../domain/entities/partido.dart';
+ import '../../domain/entities/compadre.dart';
+ import '../../domain/entities/ronda.dart';
++import '../../domain/entities/enfrentamiento.dart';
+ import '../../domain/entities/sorteo_resultado.dart';
+ import '../../engine/derby_engine.dart';
++import '../../engine/matchmaking/global_pool_matcher.dart';
+ 
+ /// Caso de uso: Generar el sorteo (emparejamiento) de una ronda.
+ ///
+ /// Orquesta el DerbyEngine con los datos necesarios.
+ /// No contiene lógica algorítmica — eso vive en engine/.
+ class GenerarSorteo {
++  List<Ronda> _ejecutarGlobal(
++      List<Partido> partidos, List<Gallo> gallosEfectivos, List<Compadres> compadres, int nRondas) {
++    if (nRondas <= 0) return [];
++    final gallosPL = gallosEfectivos.where((g) => !g.esBase).toList();
++    if (gallosPL.isEmpty) return [];
++
++    print("🐓 Ejecutando GlobalPoolMatcher para ${gallosPL.length} gallos usando $nRondas rondas.");
++    final pares = GlobalPoolMatcher.emparejarTodo(gallos: gallosPL, compadres: compadres);
++
++    final rondasGeneradas = <Ronda>[];
++    List<List<Enfrentamiento>> fightsPorRonda = List.generate(nRondas, (_) => []);
++    
++    // Primero tratamos de estructurar ordenadamente
++    // Optimizador SA para agrupar las peleas al inicio, eliminar huecos y PROHIBIR empalmes
++    final rnd = Random(DateTime.now().millisecondsSinceEpoch);
++    List<int> colors = List.filled(pares.length, 0);
++    
++    final Map<int, int> totalFights = {};
++    for (final p in pares) {
++      totalFights[p.a.partidoId] = (totalFights[p.a.partidoId] ?? 0) + 1;
++      totalFights[p.b.partidoId] = (totalFights[p.b.partidoId] ?? 0) + 1;
++    }
++
++    // Inicialización Greedy muy robusta para empezar con cero empalmes y rellenando lo mejor posible
++    Map<int, Set<int>> usedRounds = {};
++    for (int i = 0; i < pares.length; i++) {
++        int aId = pares[i].a.partidoId;
++        int bId = pares[i].b.partidoId;
++        usedRounds.putIfAbsent(aId, () => {});
++        usedRounds.putIfAbsent(bId, () => {});
++        
++        int selected = 0;
++        // Asigna la primera ronda disponible donde ninguno de los dos pelea aún
++        while (selected < nRondas && (usedRounds[aId]!.contains(selected) || usedRounds[bId]!.contains(selected))) {
++            selected++;
++        }
++        if (selected >= nRondas) selected = rnd.nextInt(nRondas);
++        colors[i] = selected;
++        usedRounds[aId]!.add(selected);
++        usedRounds[bId]!.add(selected);
++    }
++    
++    double calcScore(List<int> c) {
++      double cost = 0;
++      final Set<int> allPartidos = {};
++      for (final p in pares) {
++        allPartidos.add(p.a.partidoId);
++        allPartidos.add(p.b.partidoId);
++      }
++      
++      for (int pid in allPartidos) {
++        List<int> counts = List.filled(nRondas, 0);
++        for (int i = 0; i < pares.length; i++) {
++          if (pares[i].a.partidoId == pid || pares[i].b.partidoId == pid) {
++            counts[c[i]]++;
++          }
++        }
++        
++        int tFights = totalFights[pid] ?? 0;
++        
++        for (int r = 0; r < nRondas; r++) {
++          // REGLA 1: JAMÁS pelear más de 1 vez por ronda a menos que tengan más peleas que rondas
++          if (counts[r] > 1) {
++            cost += 5000000.0 * (counts[r] - 1); 
++          }
++          
++          // REGLA 2: Ocupar de izquierda a derecha. Si tiene 3 peleas, DEBE ocupar la 0, 1, 2.
++          if (r < tFights) {
++            if (counts[r] == 0) {
++              cost += 20000.0; // Fuerte castigo si deja vacía una ronda donde debe pelear.
++            } else {
++              cost += 10.0 * r; // Preferencia muy suave
++            }
++          } else {
++            if (counts[r] > 0) {
++              cost += 20000.0; // Fuerte castigo si pelea donde ya no debería.
++            }
++          }
++        }
++      }
++      return cost;
++    }
++
++    double bestScore = calcScore(colors);
++    List<int> bestColors = List.from(colors);
++    
++    // Solo optimizamos si la solución inicial greedy no es ya perfecta (0 costo severo)
++    if (bestScore >= 20000.0) {
++      double temp = 5000000.0; // Muy alta para poder desempatar locales, pues las barreras son altas.
++      while (temp > 1.0) {
++        for (int step = 0; step < 500; step++) {
++          int idx = rnd.nextInt(colors.length);
++          int oldC = colors[idx];
++          int newC = rnd.nextInt(nRondas);
++          if (oldC == newC) continue;
++          
++          colors[idx] = newC;
++          double newScore = calcScore(colors);
++          if (newScore <= bestScore) {
++            bestScore = newScore;
++            bestColors = List.from(colors);
++          } else {
++            // Revert if rejected
++            if (rnd.nextDouble() >= exp((bestScore - newScore) / temp)) {
++              colors[idx] = oldC;
++            }
++          }
++        }
++        temp *= 0.90;
++      }
++    }
++
++    for (int i = 0; i < pares.length; i++) {
++      int r = bestColors[i];
++      fightsPorRonda[r].add(Enfrentamiento(
++        id: DateTime.now().microsecondsSinceEpoch + pares[i].a.id + pares[i].b.id + i,
++        galloA: pares[i].a, galloB: pares[i].b, rondaNumero: r + 1, diferenciaPeso: pares[i].diff
++      ));
++    }
++    
++    for (int i = 0; i < nRondas; i++) {
++        rondasGeneradas.add(Ronda(numero: i + 1, enfrentamientos: fightsPorRonda[i], partidosBye: const []));
++    }
++    
++    return rondasGeneradas;
++  }
++
+   final DerbyEngine _engine;
+ 
+   const GenerarSorteo(this._engine);
+ 
++  /// Calcula cuántas rondas P.L. se necesitan para que peleen
++  /// (casi) todos los gallos.
++  ///
++  /// Retorna el máximo de gallos P.L. que tiene cualquier partido activo.
++  /// Con N gallos PL por partido se necesitan N rondas PL (1 gallo por ronda).
++  static int calcularRondasPL(List<Partido> partidos, List<Gallo> gallos) {
++    final activos = partidos
++        .where(
++          (p) =>
++              p.estado == EstadoPartido.activo && !p.eliminado && !p.esComodin,
++        )
++        .map((p) => p.id)
++        .toSet();
++
++    var maxPL = 0;
++    final conteo = <int, int>{};
++    for (final g in gallos) {
++      if (!activos.contains(g.partidoId) || g.esBase) continue;
++      conteo.update(g.partidoId, (v) => v + 1, ifAbsent: () => 1);
++    }
++    for (final n in conteo.values) {
++      maxPL = max(maxPL, n);
++    }
++    return maxPL;
++  }
++
++  /// Cuando el total de gallos PL es impar, promueve un gallo base a PL
++  /// para que el total sea par y TODOS los gallos peleen.
++  ///
++  /// Selecciona el último partido registrado (mayor ID) que tenga base.
++  /// Retorna la lista modificada, o la original si no es necesario.
++  static List<Gallo> _promoverBaseParImpar({
++    required List<Partido> partidos,
++    required List<Gallo> gallos,
++    int? galloBaseIdOverride,
++  }) {
++    final activos = partidos
++        .where(
++          (p) =>
++              p.estado == EstadoPartido.activo && !p.eliminado && !p.esComodin,
++        )
++        .map((p) => p.id)
++        .toSet();
++
++    final totalPL = gallos
++        .where((g) => !g.esBase && activos.contains(g.partidoId))
++        .length;
++
++    if (totalPL.isEven) return gallos; // No se necesita promoción
++
++    // Si el juez eligió un gallo base específico, usarlo.
++    if (galloBaseIdOverride != null) {
++      final galloOverride = gallos.where((g) => g.id == galloBaseIdOverride).firstOrNull;
++      if (galloOverride != null && galloOverride.esBase) {
++        print(
++          '  🔄 Promoción base→PL (juez): gallo ${galloOverride.anillo} '
++          '(P${galloOverride.partidoId}, ${galloOverride.pesoGramos}g) '
++          '→ total PL pasa de $totalPL a ${totalPL + 1} (PAR)',
++        );
++        return gallos.map((g) {
++          if (g.id == galloBaseIdOverride) {
++            return g.copyWith(esBase: false);
++          }
++          return g;
++        }).toList();
++      }
++    }
++
++    // Fallback: elegir automáticamente
++    // Criterio: el base cuyo peso crea la menor distancia al gallo PL más
++    // cercano del mismo partido → se inserta naturalmente en la distribución.
++    Gallo? mejorBase;
++    int? mejorPid;
++    double mejorFit = double.infinity;
++
++    for (final pid in activos) {
++      final bases = gallos
++          .where((g) => g.esBase && g.partidoId == pid)
++          .toList();
++      if (bases.isEmpty) continue;
++
++      final base = bases.first;
++      final plPesos = gallos
++          .where((g) => !g.esBase && g.partidoId == pid)
++          .map((g) => g.pesoGramos)
++          .toList();
++      if (plPesos.isEmpty) continue;
++
++      // Distancia mínima al PL más cercano del mismo partido
++      double minDist = double.infinity;
++      for (final p in plPesos) {
++        final d = (base.pesoGramos - p).abs();
++        if (d < minDist) minDist = d;
++      }
++
++      if (minDist < mejorFit) {
++        mejorFit = minDist;
++        mejorBase = base;
++        mejorPid = pid;
++      }
++    }
++
++    if (mejorBase != null) {
++      print(
++        '  🔄 Promoción base→PL: gallo ${mejorBase.anillo} '
++        '(P$mejorPid, ${mejorBase.pesoGramos}g, fit=${mejorFit.toStringAsFixed(0)}g) '
++        '→ total PL pasa de $totalPL a ${totalPL + 1} (PAR)',
++      );
++      final baseId = mejorBase.id;
++      return gallos.map((g) {
++        if (g.id == baseId) {
++          return g.copyWith(esBase: false);
++        }
++        return g;
++      }).toList();
++    }
++
++    print('  ⚠️ No se encontró gallo base para promover');
++    return gallos;
++  }
++
++  /// Pre-distribuye gallos a rondas por peso (estilo TUUMS).
++  ///
++  /// Cada partido aporta 1 gallo por ronda, asignado por peso ascendente:
++  ///   gallo más ligero → R1, medio → R2, más pesado → R3.
++  ///
++  /// Si un partido tiene gallos extras (base promovido → 4 PL),
++  /// el extra se asigna a la ronda con menos gallos.
++  ///
++  /// Finalmente, si 2 rondas quedan con conteo impar, se equilibra
++  /// moviendo 1 gallo de una ronda a otra (partido "donor" omite una ronda
++  /// y dobla en otra), para que todas las rondas tengan conteo par.
++  ///
++  /// Retorna Map<rondaNumero, Set<galloIDs>>.
++  static Map<int, Set<int>> _distribuirGallosEnRondas({
++    required List<Partido> partidos,
++    required List<Gallo> gallos,
++    required int numRondas,
++    int? partidoDoblePreferidoId,
++    double diferenciaMaxPeso = 0.0,
++  }) {
++    final activos = partidos
++        .where(
++          (p) =>
++              p.estado == EstadoPartido.activo && !p.eliminado && !p.esComodin,
++        )
++        .map((p) => p.id)
++        .toSet();
++
++    final resultado = <int, Set<int>>{};
++    for (var r = 1; r <= numRondas; r++) {
++      resultado[r] = {};
++    }
++
++    // Paso 1: asignar 1 gallo por ronda por partido (por peso ascendente).
++    // Los extras (partido promovido con 4+ gallos) van a la ronda más chica.
++    final partidosConExtra = <int>{};
++
++    for (final pid in activos) {
++      final gallosPL =
++          gallos.where((g) => g.partidoId == pid && !g.esBase).toList()
++            ..sort((a, b) => a.pesoGramos.compareTo(b.pesoGramos));
++
++      for (var i = 0; i < gallosPL.length; i++) {
++        if (i < numRondas) {
++          resultado[i + 1]!.add(gallosPL[i].id);
++        } else {
++          // Extra: asignar a la ronda donde su peso encaje mejor
++          // (menor diferencia con el promedio de la ronda).
++          final extraPeso = gallosPL[i].pesoGramos;
++          var bestR = 1;
++          double bestFit = double.infinity;
++          for (var r = 1; r <= numRondas; r++) {
++            if (resultado[r]!.isEmpty) continue;
++            double sum = 0;
++            for (final gid in resultado[r]!) {
++              sum += gallos.firstWhere((g) => g.id == gid).pesoGramos;
++            }
++            final avg = sum / resultado[r]!.length;
++            final fit = (extraPeso - avg).abs();
++            if (fit < bestFit) {
++              bestFit = fit;
++              bestR = r;
++            }
++          }
++          resultado[bestR]!.add(gallosPL[i].id);
++          partidosConExtra.add(pid);
++        }
++      }
++    }
++
++    // Paso 2: equilibrar rondas impares (hacer todas pares).
++    final oddRounds = <int>[];
++    for (var r = 1; r <= numRondas; r++) {
++      if (resultado[r]!.length.isOdd) oddRounds.add(r);
++    }
++
++    if (oddRounds.length == 2) {
++      _equilibrarRondas(
++        distribucion: resultado,
++        gallos: gallos,
++        activos: activos,
++        partidosConExtra: partidosConExtra,
++        roundFrom: oddRounds[0], // Ronda que pierde 1 gallo (donor omite)
++        roundTo: oddRounds[1], // Ronda que gana 1 gallo (donor dobla)
++        partidoDoblePreferidoId: partidoDoblePreferidoId,
++        diferenciaMaxPeso: diferenciaMaxPeso,
++      );
++    }
++
++    // Imprimir distribución
++    for (var r = 1; r <= numRondas; r++) {
++      print(
++        '  📦 R$r: ${resultado[r]!.length} gallos'
++        '${resultado[r]!.length.isEven ? " (par)" : " (IMPAR)"}',
++      );
++    }
++
++    return resultado;
++  }
++
++  /// Equilibra 2 rondas impares moviendo 1 gallo de [roundFrom] a [roundTo].
++  ///
++  /// El partido "donor" omite [roundFrom] y dobla en [roundTo].
++  /// Se valida que al quitar el donor de [roundFrom], todos los gallos
++  /// restantes tengan al menos un rival válido (dentro de diffMaxPeso).
++  /// Si la preferencia del juez es válida, se usa; de lo contrario se
++  /// busca el mejor donor por peso que no rompa la ronda.
++  static void _equilibrarRondas({
++    required Map<int, Set<int>> distribucion,
++    required List<Gallo> gallos,
++    required Set<int> activos,
++    required Set<int> partidosConExtra,
++    required int roundFrom,
++    required int roundTo,
++    int? partidoDoblePreferidoId,
++    double diferenciaMaxPeso = 0.0,
++  }) {
++    // Calcular peso promedio de la ronda destino
++    double sumWeight = 0;
++    int count = 0;
++    for (final gid in distribucion[roundTo]!) {
++      final g = gallos.firstWhere((g) => g.id == gid);
++      sumWeight += g.pesoGramos;
++      count++;
++    }
++    final avgWeightTo = count > 0 ? sumWeight / count : 0.0;
++
++    // Construir lista de candidatos válidos: partido con 1 gallo en roundFrom
++    // y 1 en roundTo, que no sea partido con extra (promovido).
++    final candidatos = <({int pid, int galloId, double fit})>[];
++
++    for (final pid in activos) {
++      if (partidosConExtra.contains(pid)) continue;
++
++      final gallosInFrom = distribucion[roundFrom]!
++          .where(
++              (gid) => gallos.any((g) => g.id == gid && g.partidoId == pid))
++          .toList();
++
++      final gallosInTo = distribucion[roundTo]!
++          .where(
++              (gid) => gallos.any((g) => g.id == gid && g.partidoId == pid))
++          .toList();
++
++      if (gallosInFrom.length != 1 || gallosInTo.length != 1) continue;
++
++      final galloToMove =
++          gallos.firstWhere((g) => g.id == gallosInFrom.first);
++      final fit = (galloToMove.pesoGramos - avgWeightTo).abs();
++
++      candidatos.add((pid: pid, galloId: gallosInFrom.first, fit: fit));
++    }
++
++    // Ordenar: preferencia del juez primero, luego por weight-fit
++    candidatos.sort((a, b) {
++      if (partidoDoblePreferidoId != null) {
++        if (a.pid == partidoDoblePreferidoId) return -1;
++        if (b.pid == partidoDoblePreferidoId) return 1;
++      }
++      return a.fit.compareTo(b.fit);
++    });
++
++    // Probar cada candidato y validar que roundFrom siga siendo matchable
++    for (final cand in candidatos) {
++      // Simular la remoción
++      final gallosFromSinDonor = Set<int>.of(distribucion[roundFrom]!)
++        ..remove(cand.galloId);
++
++      if (_rondaEsMatchable(gallosFromSinDonor, gallos, diferenciaMaxPeso)) {
++        distribucion[roundFrom]!.remove(cand.galloId);
++        distribucion[roundTo]!.add(cand.galloId);
++        print(
++          '  🔄 Equilibrado: P${cand.pid} omite R$roundFrom, '
++          'dobla en R$roundTo',
++        );
++        return;
++      } else {
++        print(
++          '  ⚠️ P${cand.pid} como donor dejaría R$roundFrom sin matching'
++          ' válido, probando siguiente...',
++        );
++      }
++    }
++
++    // Ningún candidato produce un roundFrom matchable.
++    // Fallback: usar el de mejor peso sin validación (el engine lo resolverá).
++    if (candidatos.isNotEmpty) {
++      // Reordenar por peso solamente (sin preferencia del juez)
++      candidatos.sort((a, b) => a.fit.compareTo(b.fit));
++      final best = candidatos.first;
++      distribucion[roundFrom]!.remove(best.galloId);
++      distribucion[roundTo]!.add(best.galloId);
++      print(
++        '  🔄 Equilibrado (fallback): P${best.pid} omite R$roundFrom, '
++        'dobla en R$roundTo',
++      );
++    } else {
++      print('  ⚠️ No se encontró donor para equilibrar rondas');
++    }
++  }
++
++  /// Verifica que una ronda (conjunto de galloIds) sea matchable:
++  /// cada gallo tiene al menos un rival válido (distinto partido,
++  /// diferencia de peso ≤ diffMaxPeso).
++  static bool _rondaEsMatchable(
++    Set<int> galloIds,
++    List<Gallo> gallos,
++    double diferenciaMaxPeso,
++  ) {
++    if (galloIds.length < 2) return galloIds.isEmpty;
++
++    final galloList = galloIds
++        .map((id) => gallos.firstWhere((g) => g.id == id))
++        .toList();
++
++    for (final g in galloList) {
++      final tieneRival = galloList.any((other) {
++        if (other.partidoId == g.partidoId) return false;
++        if (diferenciaMaxPeso <= 0) return true;
++        return (g.pesoGramos - other.pesoGramos).abs() <= diferenciaMaxPeso;
++      });
++      if (!tieneRival) return false;
++    }
++    return true;
++  }
++
+   /// Genera la ronda [rondaNumero] del derby.
+   ///
+   /// Recibe entidades de dominio puras.
+@@ -24,6 +502,7 @@ class GenerarSorteo {
+     required List<Compadres> compadres,
+     required List<Ronda> rondasPrevias,
+     required int rondaNumero,
++    int? partidoDoblePreferidoId,
+   }) {
+     return _engine.generarRonda(
+       partidos: partidos,
+@@ -31,117 +510,62 @@ class GenerarSorteo {
+       compadres: compadres,
+       rondasPrevias: rondasPrevias,
+       rondaNumero: rondaNumero,
++      partidoDoblePreferidoId: partidoDoblePreferidoId,
+     );
+   }
+ 
+   /// Genera SOLO las primeras rondas P.L. (primer bloque).
+   ///
+-  /// Para un derby de 4 rondas: genera rondas 1 y 2 (PL) solamente.
++  /// Para un derby de 4 rondas: genera rondas 1 y 2 solamente.
+   /// Las rondas posteriores se generan incrementalmente después de
+   /// registrar resultados, para que la eliminación y el comodín funcionen.
+   ///
+-  /// [numRondasIniciales]: cuántas rondas PL generar (default: min(2, PL total)).
++  /// [numRondasIniciales]: cuántas rondas generar (default: min(2, total)).
+   List<Ronda> ejecutarPrimerBloque({
+     required List<Partido> partidos,
+     required List<Gallo> gallos,
+     required List<Compadres> compadres,
+     int? numRondasIniciales,
++    int? partidoDoblePreferidoId,
++    int? galloBasePromovidoId,
+   }) {
+-    final totalPL = _engine.config.rondasTotales - 1;
+-    final nRondas = numRondasIniciales ?? (totalPL >= 2 ? 2 : totalPL);
++    final rondasPL = calcularRondasPL(partidos, gallos);
++    final nRondas = numRondasIniciales ?? rondasPL;
+     if (nRondas <= 0) return [];
+-
+-    final numPartidosActivos = partidos
+-        .where((p) =>
+-            p.estado == EstadoPartido.activo && !p.eliminado && !p.esComodin)
+-        .length;
+-    final esImpar = numPartidosActivos % 2 != 0;
+-
+-    // Para impar, usar flujo secuencial (cada ronda decide su doble pelea
+-    // con un partido distinto). La optimización global solo maneja par.
+-    if (!esImpar) {
+-      try {
+-        return _engine.generarSorteoPLGlobal(
+-          partidos: partidos,
+-          gallos: gallos,
+-          compadres: compadres,
+-          numRondasOverride: nRondas,
+-        );
+-      } catch (e) {
+-        print('⚠️ Optimización global falló ($e), usando flujo secuencial...');
+-      }
+-    }
+-
+-    // Flujo secuencial (impar, o fallback si global falló)
+-    final rondasGeneradas = <Ronda>[];
+-    for (var i = 1; i <= nRondas; i++) {
+-      final ronda = _engine.generarRonda(
+-        partidos: partidos,
+-        gallos: gallos,
+-        compadres: compadres,
+-        rondasPrevias: rondasGeneradas,
+-        rondaNumero: i,
+-      );
+-      rondasGeneradas.add(ronda);
+-    }
+-    return rondasGeneradas;
++    final esImpar = partidos.where((p) => p.estado == EstadoPartido.activo && !p.eliminado && !p.esComodin).length % 2 != 0;
++    
++    final gallosEfectivos = esImpar
++        ? _promoverBaseParImpar(partidos: partidos, gallos: gallos, galloBaseIdOverride: galloBasePromovidoId)
++        : gallos;
++    return _ejecutarGlobal(partidos, gallosEfectivos, compadres, nRondas);
+   }
+ 
+   /// Genera TODAS las rondas del derby de una sola vez.
+   ///
+-  /// Usa optimización global minimax para las rondas P.L. (minimiza la
+-  /// diferencia máxima individual entre gallos). La ronda base (última)
+-  /// se genera con el método secuencial estándar.
++  /// Usa optimización global minimax (minimiza la diferencia máxima
++  /// individual entre gallos).
+   ///
+   /// Si la optimización global falla, cae al flujo secuencial como respaldo.
++  ///
++  /// El número de rondas se calcula del dato: máximo gallos PL por partido.
++  /// Con 3 PL gallos → 3 rondas PL. No depende de `config.rondasTotales`.
+   List<Ronda> ejecutarTodas({
+     required List<Partido> partidos,
+     required List<Gallo> gallos,
+     required List<Compadres> compadres,
++    int? partidoDoblePreferidoId,
++    int? galloBasePromovidoId,
+   }) {
+-    final rondasGeneradas = <Ronda>[];
+-
+-    // ── Intentar optimización global para rondas P.L. ──
+-    try {
+-      final rondasPL = _engine.generarSorteoPLGlobal(
+-        partidos: partidos,
+-        gallos: gallos,
+-        compadres: compadres,
+-      );
+-      rondasGeneradas.addAll(rondasPL);
+-
+-      // Generar ronda base (última) con método secuencial
+-      if (_engine.config.rondasTotales > 1) {
+-        final rondaBase = _engine.generarRonda(
+-          partidos: partidos,
+-          gallos: gallos,
+-          compadres: compadres,
+-          rondasPrevias: rondasGeneradas,
+-          rondaNumero: _engine.config.rondasTotales,
+-        );
+-        rondasGeneradas.add(rondaBase);
+-      }
+-
+-      return rondasGeneradas;
+-    } catch (e) {
+-      // Fallback: flujo secuencial original
+-      print('⚠️ Optimización global falló ($e), usando flujo secuencial...');
+-    }
+-
+-    // ── Fallback secuencial (ronda por ronda) ──
+-    rondasGeneradas.clear();
+-    for (var i = 1; i <= _engine.config.rondasTotales; i++) {
+-      final ronda = _engine.generarRonda(
+-        partidos: partidos,
+-        gallos: gallos,
+-        compadres: compadres,
+-        rondasPrevias: rondasGeneradas,
+-        rondaNumero: i,
+-      );
+-      rondasGeneradas.add(ronda);
+-    }
+-
+-    return rondasGeneradas;
++    final rondasPL = calcularRondasPL(partidos, gallos);
++    if (rondasPL <= 0) return [];
++    
++    final esImpar = partidos.where((p) => p.estado == EstadoPartido.activo && !p.eliminado && !p.esComodin).length % 2 != 0;
++    
++    final gallosEfectivos = esImpar
++        ? _promoverBaseParImpar(partidos: partidos, gallos: gallos, galloBaseIdOverride: galloBasePromovidoId)
++        : gallos;
++        
++    return _ejecutarGlobal(partidos, gallosEfectivos, compadres, rondasPL);
+   }
+ 
+   /// Genera todas las rondas y construye el resultado visual (Hoja de Estilo).
+@@ -153,11 +577,15 @@ class GenerarSorteo {
+     required List<Partido> partidos,
+     required List<Gallo> gallos,
+     required List<Compadres> compadres,
++    int? partidoDoblePreferidoId,
++    int? galloBasePromovidoId,
+   }) {
+     final rondas = ejecutarTodas(
+       partidos: partidos,
+       gallos: gallos,
+       compadres: compadres,
++      partidoDoblePreferidoId: partidoDoblePreferidoId,
++      galloBasePromovidoId: galloBasePromovidoId,
+     );
+ 
+     return construirResultadoVisual(

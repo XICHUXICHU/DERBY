@@ -5,7 +5,7 @@ class AnalisisEliminacion {
   final int partidoId;
   final int puntosActuales;
   final int puntosMaximosPosibles;
-  final int umbralPremio; // Mínimo de puntos para zona de premio
+  final int umbralPremio;         // Mínimo de puntos para zona de premio
   final bool eliminado;
 
   const AnalisisEliminacion({
@@ -48,19 +48,18 @@ class EliminationService {
     if (rondasRestantes <= 0 || partidos.isEmpty) return [];
 
     // Excluir comodines del análisis de eliminación (no compiten por premios).
-    final partidosCompetidores = partidos.where((p) => !p.esComodin).toList();
+    final partidosCompetidores = partidos
+        .where((p) => !p.esComodin)
+        .toList();
 
     // Calcular el umbral: el punto mínimo para entrar en zona de premio.
     // Es el puntaje del partido en posición posicionesPremio
     // asumiendo el PEOR escenario para cada uno.
-    final puntosMaximos =
-        partidosCompetidores
-            .where((p) => p.estado == EstadoPartido.activo)
-            .map(
-              (p) => p.puntosMaximosPosibles(rondasRestantes, puntosVictoria),
-            )
-            .toList()
-          ..sort((a, b) => b.compareTo(a)); // Descendente
+    final puntosMaximos = partidosCompetidores
+        .where((p) => p.estado == EstadoPartido.activo)
+        .map((p) => p.puntosMaximosPosibles(rondasRestantes, puntosVictoria))
+        .toList()
+      ..sort((a, b) => b.compareTo(a)); // Descendente
 
     // El umbral es el puntaje máximo del partido en la posición premio+1
     // (el primero que quedaría fuera si todos los de arriba ganan todo).
@@ -76,35 +75,29 @@ class EliminationService {
     for (final partido in partidosCompetidores) {
       if (partido.estado != EstadoPartido.activo) continue;
 
-      final maxPosible = partido.puntosMaximosPosibles(
-        rondasRestantes,
-        puntosVictoria,
-      );
+      final maxPosible =
+          partido.puntosMaximosPosibles(rondasRestantes, puntosVictoria);
 
       // Calculamos cuántos partidos tienen un puntaje mínimo garantizado
       // superior al máximo posible de este partido.
       final partidosMejores = partidosCompetidores
-          .where(
-            (p) =>
-                p.id != partido.id &&
-                p.estado == EstadoPartido.activo &&
-                p.puntos > maxPosible,
-          ) // Puntos actuales ya mayores que su max
+          .where((p) =>
+              p.id != partido.id &&
+              p.estado == EstadoPartido.activo &&
+              p.puntos > maxPosible) // Puntos actuales ya mayores que su max
           .length;
 
       // Si hay más partidos con puntos actuales superiores a su máximo
       // posible que las posiciones de premio, está eliminado.
       final eliminado = partidosMejores >= posicionesPremio;
 
-      resultados.add(
-        AnalisisEliminacion(
-          partidoId: partido.id,
-          puntosActuales: partido.puntos,
-          puntosMaximosPosibles: maxPosible,
-          umbralPremio: umbral,
-          eliminado: eliminado,
-        ),
-      );
+      resultados.add(AnalisisEliminacion(
+        partidoId: partido.id,
+        puntosActuales: partido.puntos,
+        puntosMaximosPosibles: maxPosible,
+        umbralPremio: umbral,
+        eliminado: eliminado,
+      ));
     }
 
     return resultados;
@@ -122,6 +115,9 @@ class EliminationService {
       rondasRestantes: rondasRestantes,
       puntosVictoria: puntosVictoria,
       posicionesPremio: posicionesPremio,
-    ).where((a) => a.eliminado).map((a) => a.partidoId).toSet();
+    )
+        .where((a) => a.eliminado)
+        .map((a) => a.partidoId)
+        .toSet();
   }
 }

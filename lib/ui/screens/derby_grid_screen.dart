@@ -1,3 +1,5 @@
+import 'dart:io';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import '../../main.dart'
     show
@@ -12,8 +14,10 @@ import '../../engine/derby_engine.dart';
 import '../../application/usecases/generar_sorteo.dart';
 import '../reports/reporte_anillos_pdf.dart';
 import '../reports/reporte_estilo_pdf.dart';
+import '../widgets/dialog_impar_config.dart';
 import 'partido_form_screen.dart';
 import 'derby_peleas_screen.dart';
+import 'derby_config_form_screen.dart';
 
 // ═══════════════════════════════════════════════════════════════
 //  Constantes de estilo – replica el diseño de la imagen
@@ -81,6 +85,7 @@ class DerbyGridScreen extends StatefulWidget {
 }
 
 class _DerbyGridScreenState extends State<DerbyGridScreen> {
+  late Derby _derbyActual = widget.derby;
   List<_PartidoRow> _rows = [];
   bool _cargando = true;
 
@@ -93,15 +98,111 @@ class _DerbyGridScreenState extends State<DerbyGridScreen> {
     _cargarDatos();
   }
 
+  Future<void> _abrirConfiguracion() async {
+    final modificado = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => DerbyConfigFormScreen(derbyExistente: _derbyActual),
+      ),
+    );
+    if (modificado == true) {
+      final derbyRefrescado = await derbyRepository.obtenerPorId(
+        _derbyActual.id,
+      );
+      if (derbyRefrescado != null && mounted) {
+        setState(() => _derbyActual = derbyRefrescado);
+      }
+      _cargarDatos();
+    }
+  }
+
+  Future<void> _importarCsv() async {
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['csv'],
+      );
+      if (result == null || result.files.single.path == null) return;
+
+      final file = File(result.files.single.path!);
+      final lineas = await file.readAsLines();
+      if (lineas.isEmpty) return;
+
+      int importados = 0;
+      // Saltamos la línea 0 si es cabecera. Recorremos en pasos de 2 o 1 dependiendo de cómo lee.
+      // El formato que vimos es:
+      // Line: 1;EL ROSAL;005 VS ;010 VS ;006 VS ;
+      // Line: ;PESO;1980;2025;2360;
+
+      for (int i = 0; i < lineas.length; i++) {
+        final line1 = lineas[i].trim();
+        if (line1.isEmpty || line1.startsWith(';PARTIDO')) continue;
+
+        final parts1 = line1.split(';');
+        if (parts1.length >= 3 && int.tryParse(parts1[0]) != null) {
+          final partidoNombre = parts1[1].trim();
+          final anillos = parts1
+              .sublist(2)
+              .map((s) => s.replaceAll('VS', '').trim())
+              .where((s) => s.isNotEmpty)
+              .toList();
+
+          final line2 = (i + 1 < lineas.length) ? lineas[i + 1].trim() : '';
+          List<double> pesos = [];
+          if (line2.startsWith(';PESO')) {
+            final parts2 = line2.split(';');
+            pesos = parts2
+                .sublist(2)
+                .map((s) => double.tryParse(s.trim()) ?? 0.0)
+                .where((p) => p > 0)
+                .toList();
+            i++; // saltar línea de peso
+          }
+
+          // Crear partido en base de datos
+          final pid = await partidoRepository.crear(
+            derbyId: _derbyActual.id,
+            nombre: partidoNombre,
+          );
+
+          // Agregar gallos
+          for (int g = 0; g < anillos.length && g < pesos.length; g++) {
+            // El primero puede ser base u otro.
+            // Para replicar tu prueba, haremos esBase = false por defecto y si es el cuarto gallo etc.
+            // Asignamos todo libre y que el motor decida o el que genere el peso base lo asigne.
+            await galloRepository.crear(
+              partidoId: pid,
+              anillo: '${pid}_${anillos[g]}',
+              pesoGramos: pesos[g],
+              esBase: false,
+            );
+          }
+          importados++;
+        }
+      }
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Importados $importados partidos')),
+      );
+      _cargarDatos();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error importando: $e')));
+    }
+  }
+
   // ── Carga de datos ─────────────────────────────────────
 
   Future<void> _cargarDatos() async {
     setState(() => _cargando = true);
 
-    final partidos = await partidoRepository.listarPorDerby(widget.derby.id);
-    final gallos = await galloRepository.listarPorDerby(widget.derby.id);
+    final partidos = await partidoRepository.listarPorDerby(_derbyActual.id);
+    final gallos = await galloRepository.listarPorDerby(_derbyActual.id);
     final compadresList = await compadresRepository.listarPorDerby(
-      widget.derby.id,
+      _derbyActual.id,
     );
 
     // Construir mapa bidireccional de compadres
@@ -136,7 +237,7 @@ class _DerbyGridScreenState extends State<DerbyGridScreen> {
     final ok = await Navigator.push<bool>(
       context,
       MaterialPageRoute(
-        builder: (_) => PartidoFormScreen(derbyId: widget.derby.id),
+        builder: (_) => PartidoFormScreen(derbyId: _derbyActual.id),
       ),
     );
     if (ok == true) _cargarDatos();
@@ -147,7 +248,7 @@ class _DerbyGridScreenState extends State<DerbyGridScreen> {
       context,
       MaterialPageRoute(
         builder: (_) =>
-            PartidoFormScreen(derbyId: widget.derby.id, partidoExistente: p),
+            PartidoFormScreen(derbyId: _derbyActual.id, partidoExistente: p),
       ),
     );
     if (ok == true) _cargarDatos();
@@ -265,7 +366,7 @@ class _DerbyGridScreenState extends State<DerbyGridScreen> {
     }
 
     final reporte = ReporteAnillosPdf(
-      nombreDerby: widget.derby.nombre,
+      nombreDerby: _derbyActual.nombre,
       fecha: DateTime.now(),
       partidos: partidos,
       gallosPorPartido: gallosPorPartido,
@@ -328,7 +429,7 @@ class _DerbyGridScreenState extends State<DerbyGridScreen> {
     try {
       // Eliminar rondas previas (si re-generamos)
       final rondasPrevias = await rondaRepository.listarPorDerby(
-        widget.derby.id,
+        _derbyActual.id,
       );
       if (rondasPrevias.isNotEmpty) {
         // Confirmar sobrescribir
@@ -362,13 +463,13 @@ class _DerbyGridScreenState extends State<DerbyGridScreen> {
         if (ok != true || !mounted) return;
 
         // Eliminar rondas anteriores
-        await rondaRepository.eliminarPorDerby(widget.derby.id);
+        await rondaRepository.eliminarPorDerby(_derbyActual.id);
       }
 
       // Guardar nuevas rondas
       for (final ronda in rondas) {
         await rondaRepository.crearRondaConEnfrentamientos(
-          derbyId: widget.derby.id,
+          derbyId: _derbyActual.id,
           numero: ronda.numero,
           esRondaBase: ronda.esRondaBase,
           enfrentamientos: ronda.enfrentamientos,
@@ -398,12 +499,12 @@ class _DerbyGridScreenState extends State<DerbyGridScreen> {
   /// Ejecuta el sorteo completo y muestra resultados / PDF.
   Future<void> _ejecutarSorteo() async {
     // 1. Cargar datos frescos de la base
-    final partidos = await partidoRepository.listarPorDerby(widget.derby.id);
-    final galloEntries = await galloRepository.listarPorDerby(widget.derby.id);
+    final partidos = await partidoRepository.listarPorDerby(_derbyActual.id);
+    final galloEntries = await galloRepository.listarPorDerby(_derbyActual.id);
     final compadreEntries = await compadresRepository.listarPorDerby(
-      widget.derby.id,
+      _derbyActual.id,
     );
-    final derbyData = await derbyRepository.obtenerPorId(widget.derby.id);
+    final derbyData = await derbyRepository.obtenerPorId(_derbyActual.id);
     if (derbyData == null || !mounted) return;
 
     // 2. Convertir a entidades de dominio
@@ -520,37 +621,193 @@ class _DerbyGridScreenState extends State<DerbyGridScreen> {
       if (continuar != true || !mounted) return;
     }
 
-    // 5. Ejecutar sorteo
-    //    PAR  → todas las rondas de golpe (no hay problema de impar).
-    //    IMPAR → solo primer bloque (rondas 1-2). Las posteriores se
-    //            generan desde la pantalla de peleas tras registrar
-    //            resultados, para evaluar eliminación → comodín/BYE.
-    final esImpar = domPartidos.where((p) =>
-        p.estado == domain.EstadoPartido.activo && !p.eliminado && !p.esComodin
-    ).length.isOdd;
-    print('🚀 Ejecutando sorteo (${esImpar ? "impar → primer bloque" : "par → todas"})...');
-    try {
-      final List<domain.Ronda> rondas;
-      if (esImpar) {
-        rondas = sorteo.ejecutarPrimerBloque(
-          partidos: domPartidos,
-          gallos: domGallos,
-          compadres: domCompadres,
-        );
-      } else {
-        rondas = sorteo.ejecutarTodas(
-          partidos: domPartidos,
-          gallos: domGallos,
-          compadres: domCompadres,
-        );
+    // 5. Ejecutar sorteo — genera TODAS las rondas PL necesarias.
+    //    El número de rondas se calcula del dato (max gallos PL por partido).
+    //    Impar → flujo secuencial con doble pelea en R1.
+    //    Par   → optimización global minimax.
+    final numActivos = domPartidos
+        .where(
+          (p) =>
+              p.estado == domain.EstadoPartido.activo &&
+              !p.eliminado &&
+              !p.esComodin,
+        )
+        .length;
+    final esImpar = numActivos.isOdd;
+    final rondasPL = GenerarSorteo.calcularRondasPL(domPartidos, domGallos);
+    print(
+      '🚀 Ejecutando sorteo (${esImpar ? "impar" : "par"}, $rondasPL rondas PL calculadas)...',
+    );
+
+    // ── Derby impar: mostrar diálogo de decisión del juez ──
+    int? partidoDoblePreferidoId;
+    int? galloBasePromovidoId;
+    if (esImpar && mounted) {
+      final decision = await mostrarDialogImparConfig(
+        context: context,
+        partidos: domPartidos,
+        gallos: domGallos,
+        nombreDerby: derbyData.nombre,
+        rondasPL: rondasPL,
+      );
+      if (decision == null || !mounted) return; // Juez canceló
+      if (decision.estrategia == EstrategiaImpar.doblePelea) {
+        partidoDoblePreferidoId = decision.partidoDoblePeleaId;
       }
+      if (decision.promoverGallo) {
+        galloBasePromovidoId = decision.galloBasePromovidoId;
+      }
+      print(
+        '👨‍⚖️ Decisión del juez: estrategia=${decision.estrategia.name}'
+        '${partidoDoblePreferidoId != null ? ", doblePelea=P$partidoDoblePreferidoId" : ""}'
+        '${galloBasePromovidoId != null ? ", galloPromovido=$galloBasePromovidoId" : ""}',
+      );
+    }
+
+    try {
+      final rondas = sorteo.ejecutarTodas(
+        partidos: domPartidos,
+        gallos: domGallos,
+        compadres: domCompadres,
+        partidoDoblePreferidoId: partidoDoblePreferidoId,
+        galloBasePromovidoId: galloBasePromovidoId,
+      );
 
       print('✅ Sorteo completado: ${rondas.length} rondas generadas');
-      for (final r in rondas) {
-        print(
-          '  Ronda ${r.numero}: ${r.enfrentamientos.length} peleas, bye=${r.partidosBye}, doble=${r.partidosDobles}',
-        );
+
+      // ── Imprimir resultados completos para análisis ──
+      print('\n╔══════════════════════════════════════════════════════╗');
+      print('║  RESULTADOS SORTEO — ${derbyData.nombre}');
+      print('║  ${rondas.length} rondas, ${domPartidos.length} partidos');
+      print('╚══════════════════════════════════════════════════════╝');
+
+      // Mapa de nombres para impresión
+      final _nombresPid = <int, String>{};
+      for (final p in domPartidos) {
+        _nombresPid[p.id] = p.nombre;
       }
+
+      double maxDiffGlobal = 0;
+      double sumaDiffGlobal = 0;
+      int totalPeleas = 0;
+      // Tracking de enfrentamientos partido↔partido
+      final enfrentamientosPorRonda = <int, Set<(int, int)>>{};
+      // Tracking de gallos usados
+      final gallosUsadosGlobal = <int>{};
+
+      for (final r in rondas) {
+        final dobleIds = r.partidosDobles.toSet();
+        final byeIds = r.partidosBye.toSet();
+        final participantes = <int>{};
+        double maxDiffRonda = 0;
+        double sumaDiffRonda = 0;
+        enfrentamientosPorRonda[r.numero] = {};
+
+        print('\n┌── Ronda ${r.numero} ──────────────────────────────────');
+        if (dobleIds.isNotEmpty) {
+          print(
+            '│  🔄 Doble pelea: ${dobleIds.map((d) => "P$d ${_nombresPid[d] ?? ""}").join(", ")}',
+          );
+        }
+        if (byeIds.isNotEmpty) {
+          print(
+            '│  ⏭️  BYE: ${byeIds.map((b) => "P$b ${_nombresPid[b] ?? ""}").join(", ")}',
+          );
+        }
+        print('│');
+        print('│  #  | Gallo A            | vs | Gallo B            | Diff');
+        print(
+          '│  ---|--------------------|----|--------------------|---------',
+        );
+
+        for (var i = 0; i < r.enfrentamientos.length; i++) {
+          final e = r.enfrentamientos[i];
+          final pA = e.galloA.partidoId;
+          final pB = e.galloB.partidoId;
+          participantes.add(pA);
+          participantes.add(pB);
+          gallosUsadosGlobal.add(e.galloA.id);
+          gallosUsadosGlobal.add(e.galloB.id);
+
+          final diff = e.diferenciaPeso;
+          if (diff > maxDiffRonda) maxDiffRonda = diff;
+          sumaDiffRonda += diff;
+          if (diff > maxDiffGlobal) maxDiffGlobal = diff;
+          sumaDiffGlobal += diff;
+          totalPeleas++;
+
+          final (int, int) keyPar = pA < pB ? (pA, pB) : (pB, pA);
+          enfrentamientosPorRonda[r.numero]!.add(keyPar);
+
+          final marcaA = dobleIds.contains(pA) ? '🔄' : '  ';
+          final marcaB = dobleIds.contains(pB) ? '🔄' : '  ';
+          final nA =
+              '${e.galloA.anillo}(P$pA,${e.galloA.pesoGramos.toStringAsFixed(0)}g)';
+          final nB =
+              '${e.galloB.anillo}(P$pB,${e.galloB.pesoGramos.toStringAsFixed(0)}g)';
+
+          print(
+            '│  ${(i + 1).toString().padLeft(2)} |$marcaA${nA.padRight(18)}| vs |$marcaB${nB.padRight(18)}| ${diff.toStringAsFixed(0)}g',
+          );
+        }
+
+        final noParticipan = domPartidos
+            .where(
+              (p) =>
+                  p.estado == domain.EstadoPartido.activo &&
+                  !p.eliminado &&
+                  !p.esComodin &&
+                  !participantes.contains(p.id) &&
+                  !byeIds.contains(p.id),
+            )
+            .map((p) => 'P${p.id}')
+            .toList();
+
+        print('│');
+        print(
+          '│  Peleas: ${r.enfrentamientos.length} | '
+          'Participantes: ${participantes.length} | '
+          'MaxDiff: ${maxDiffRonda.toStringAsFixed(0)}g | '
+          'SumaDiff: ${sumaDiffRonda.toStringAsFixed(0)}g',
+        );
+        if (noParticipan.isNotEmpty) {
+          print('│  ⚠️  No participan: ${noParticipan.join(", ")}');
+        }
+        print('└───────────────────────────────────────────');
+      }
+
+      // ── Resumen global ──
+      print('\n┌── RESUMEN GLOBAL ────────────────────────');
+      print('│  Total peleas: $totalPeleas');
+      print('│  Gallos usados: ${gallosUsadosGlobal.length}');
+      print('│  MaxDiff global: ${maxDiffGlobal.toStringAsFixed(0)}g');
+      print('│  SumaDiff total: ${sumaDiffGlobal.toStringAsFixed(0)}g');
+      print(
+        '│  PromDiff: ${totalPeleas > 0 ? (sumaDiffGlobal / totalPeleas).toStringAsFixed(1) : 0}g',
+      );
+
+      // Verificar repeticiones de contrincante
+      final todosEnfrentamientos = <(int, int)>{};
+      final repetidos = <(int, int)>{};
+      for (final entry in enfrentamientosPorRonda.entries) {
+        for (final par in entry.value) {
+          if (!todosEnfrentamientos.add(par)) {
+            repetidos.add(par);
+          }
+        }
+      }
+      if (repetidos.isNotEmpty) {
+        print('│  ⚠️  Contrincantes repetidos:');
+        for (final rep in repetidos) {
+          print(
+            '│     P${rep.$1} (${_nombresPid[rep.$1]}) vs P${rep.$2} (${_nombresPid[rep.$2]})',
+          );
+        }
+      } else {
+        print('│  ✅ Sin contrincantes repetidos entre rondas');
+      }
+
+      print('└───────────────────────────────────────────\n');
 
       final resultado = sorteo.construirResultadoVisual(
         nombreDerby: derbyData.nombre,
@@ -879,9 +1136,19 @@ class _DerbyGridScreenState extends State<DerbyGridScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.derby.nombre),
+        title: Text(_derbyActual.nombre),
         centerTitle: true,
         actions: [
+          IconButton(
+            icon: const Icon(Icons.file_upload),
+            tooltip: 'Importar desde CSV',
+            onPressed: _importarCsv,
+          ),
+          IconButton(
+            icon: const Icon(Icons.settings),
+            tooltip: 'Configuración del Derby',
+            onPressed: _abrirConfiguracion,
+          ),
           if (!_cargando && _rows.isNotEmpty)
             Padding(
               padding: const EdgeInsets.only(right: 8),
@@ -903,7 +1170,7 @@ class _DerbyGridScreenState extends State<DerbyGridScreen> {
                 await Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (_) => DerbyPeleasScreen(derby: widget.derby),
+                    builder: (_) => DerbyPeleasScreen(derby: _derbyActual),
                   ),
                 );
                 _cargarDatos();
@@ -1354,7 +1621,7 @@ class _DerbyGridScreenState extends State<DerbyGridScreen> {
       context: context,
       builder: (ctx) => _CompadresDialog(
         partido: partido,
-        derbyId: widget.derby.id,
+        derbyId: _derbyActual.id,
         otrosPartidos: otros.map((r) => r.partido).toList(),
         compadresIniciales: compadresActuales,
       ),

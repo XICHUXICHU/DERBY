@@ -24,13 +24,26 @@ class GenerarSorteo {
     required List<Compadres> compadres,
     required List<Ronda> rondasPrevias,
     required int rondaNumero,
+    int? galloBasePromovidoId,
+    int? partidoDoblePreferidoId,
   }) {
+    List<Gallo> gallosEfectivos = gallos;
+    if (galloBasePromovidoId != null) {
+      gallosEfectivos = gallos.map((g) {
+        if (g.id == galloBasePromovidoId) {
+          return g.copyWith(esBase: false);
+        }
+        return g;
+      }).toList();
+    }
+
     return _engine.generarRonda(
       partidos: partidos,
-      gallos: gallos,
+      gallos: gallosEfectivos,
       compadres: compadres,
       rondasPrevias: rondasPrevias,
       rondaNumero: rondaNumero,
+      partidoDoblePreferidoId: partidoDoblePreferidoId,
     );
   }
 
@@ -46,14 +59,28 @@ class GenerarSorteo {
     required List<Gallo> gallos,
     required List<Compadres> compadres,
     int? numRondasIniciales,
+    int? partidoDoblePreferidoId,
+    int? galloBasePromovidoId,
   }) {
+    List<Gallo> gallosEfectivos = gallos;
+    if (galloBasePromovidoId != null) {
+      gallosEfectivos = gallos.map((g) {
+        if (g.id == galloBasePromovidoId) {
+          return g.copyWith(esBase: false);
+        }
+        return g;
+      }).toList();
+    }
+
     final totalPL = _engine.config.rondasTotales - 1;
     final nRondas = numRondasIniciales ?? (totalPL >= 2 ? 2 : totalPL);
     if (nRondas <= 0) return [];
 
     final numPartidosActivos = partidos
-        .where((p) =>
-            p.estado == EstadoPartido.activo && !p.eliminado && !p.esComodin)
+        .where(
+          (p) =>
+              p.estado == EstadoPartido.activo && !p.eliminado && !p.esComodin,
+        )
         .length;
     final esImpar = numPartidosActivos % 2 != 0;
 
@@ -63,7 +90,7 @@ class GenerarSorteo {
       try {
         return _engine.generarSorteoPLGlobal(
           partidos: partidos,
-          gallos: gallos,
+          gallos: gallosEfectivos,
           compadres: compadres,
           numRondasOverride: nRondas,
         );
@@ -77,10 +104,11 @@ class GenerarSorteo {
     for (var i = 1; i <= nRondas; i++) {
       final ronda = _engine.generarRonda(
         partidos: partidos,
-        gallos: gallos,
+        gallos: gallosEfectivos,
         compadres: compadres,
         rondasPrevias: rondasGeneradas,
         rondaNumero: i,
+        partidoDoblePreferidoId: partidoDoblePreferidoId,
       );
       rondasGeneradas.add(ronda);
     }
@@ -98,14 +126,29 @@ class GenerarSorteo {
     required List<Partido> partidos,
     required List<Gallo> gallos,
     required List<Compadres> compadres,
+    int? partidoDoblePreferidoId,
+    int? galloBasePromovidoId,
   }) {
+    List<Gallo> gallosEfectivos = gallos;
+
+    // Si se promovió un gallo base, tratarlo como P.L. (esBase = false)
+    if (galloBasePromovidoId != null) {
+      gallosEfectivos = gallos.map((g) {
+        if (g.id == galloBasePromovidoId) {
+          return g.copyWith(esBase: false);
+        }
+        return g;
+      }).toList();
+      print('🐓 Gallo base promovido a P.L. para cuadrar peleas (ID: $galloBasePromovidoId)');
+    }
+
     final rondasGeneradas = <Ronda>[];
 
     // ── Intentar optimización global para rondas P.L. ──
     try {
       final rondasPL = _engine.generarSorteoPLGlobal(
         partidos: partidos,
-        gallos: gallos,
+        gallos: gallosEfectivos,
         compadres: compadres,
       );
       rondasGeneradas.addAll(rondasPL);
@@ -114,10 +157,11 @@ class GenerarSorteo {
       if (_engine.config.rondasTotales > 1) {
         final rondaBase = _engine.generarRonda(
           partidos: partidos,
-          gallos: gallos,
+          gallos: gallosEfectivos,
           compadres: compadres,
           rondasPrevias: rondasGeneradas,
           rondaNumero: _engine.config.rondasTotales,
+          partidoDoblePreferidoId: partidoDoblePreferidoId,
         );
         rondasGeneradas.add(rondaBase);
       }
@@ -131,13 +175,15 @@ class GenerarSorteo {
     // ── Fallback secuencial (ronda por ronda) ──
     rondasGeneradas.clear();
     for (var i = 1; i <= _engine.config.rondasTotales; i++) {
-      final ronda = _engine.generarRonda(
-        partidos: partidos,
-        gallos: gallos,
-        compadres: compadres,
-        rondasPrevias: rondasGeneradas,
-        rondaNumero: i,
-      );
+        final ronda = _engine.generarRonda(
+          partidos: partidos,
+          gallos: gallosEfectivos,
+          compadres: compadres,
+          rondasPrevias: rondasGeneradas,
+          rondaNumero: i,
+          // Usar el partido doble preferido en la primera oportunidad de doble pelea
+          partidoDoblePreferidoId: partidoDoblePreferidoId,
+        );
       rondasGeneradas.add(ronda);
     }
 
@@ -327,5 +373,31 @@ class GenerarSorteo {
     required List<Gallo> gallos,
   }) {
     return _engine.validarDerby(partidos, gallos);
+  }
+
+  static int calcularRondasPL(List<Partido> partidos, List<Gallo> gallos) {
+    if (partidos.isEmpty) return 0;
+    final activos = partidos
+        .where(
+          (p) =>
+              p.estado == EstadoPartido.activo && !p.eliminado && !p.esComodin,
+        )
+        .map((p) => p.id)
+        .toSet();
+    if (activos.isEmpty) return 0;
+
+    final conteos = <int, int>{};
+    for (var p in activos) {
+      conteos[p] = 0;
+    }
+    for (var g in gallos) {
+      if (!g.esBase && activos.contains(g.partidoId)) {
+        conteos[g.partidoId] = (conteos[g.partidoId] ?? 0) + 1;
+      }
+    }
+
+    if (conteos.values.isEmpty) return 0;
+    int maxPL = conteos.values.reduce((a, b) => a > b ? a : b);
+    return maxPL;
   }
 }

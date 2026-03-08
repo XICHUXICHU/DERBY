@@ -7,9 +7,14 @@ import 'tables/tables.dart';
 
 part 'app_database.g.dart';
 
-@DriftDatabase(
-  tables: [Derbys, Partidos, Gallos, CompadresTable, Rondas, Enfrentamientos],
-)
+@DriftDatabase(tables: [
+  Derbys,
+  Partidos,
+  Gallos,
+  CompadresTable,
+  Rondas,
+  Enfrentamientos,
+])
 class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
@@ -21,38 +26,38 @@ class AppDatabase extends _$AppDatabase {
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
-    onCreate: (Migrator m) async {
-      await m.createAll();
-      await customStatement('PRAGMA foreign_keys = ON');
-    },
-    onUpgrade: (Migrator m, int from, int to) async {
-      if (from < 2) {
-        await m.addColumn(partidos, partidos.depositoPagado);
-        await m.addColumn(partidos, partidos.depositoCantidad);
-      }
-      if (from < 3) {
-        await m.addColumn(derbys, derbys.pesoMinimo);
-        await m.addColumn(derbys, derbys.pesoMaximo);
-        await m.addColumn(derbys, derbys.pesoGalloBase);
-        await m.addColumn(derbys, derbys.permitirRepeticiones);
-      }
-      if (from < 4) {
-        await m.addColumn(derbys, derbys.diferenciaMaxPeso);
-        await m.addColumn(derbys, derbys.validacionEstricta);
-      }
-      if (from < 5) {
-        await m.addColumn(rondas, rondas.byePartidos);
-      }
-      if (from < 6) {
-        await m.addColumn(partidos, partidos.esComodin);
-        await m.addColumn(rondas, rondas.doblesPartidos);
-      }
-    },
-    beforeOpen: (details) async {
-      await customStatement('PRAGMA foreign_keys = ON');
-      await customStatement('PRAGMA journal_mode = WAL');
-    },
-  );
+        onCreate: (Migrator m) async {
+          await m.createAll();
+          await customStatement('PRAGMA foreign_keys = ON');
+        },
+        onUpgrade: (Migrator m, int from, int to) async {
+          if (from < 2) {
+            await m.addColumn(partidos, partidos.depositoPagado);
+            await m.addColumn(partidos, partidos.depositoCantidad);
+          }
+          if (from < 3) {
+            await m.addColumn(derbys, derbys.pesoMinimo);
+            await m.addColumn(derbys, derbys.pesoMaximo);
+            await m.addColumn(derbys, derbys.pesoGalloBase);
+            await m.addColumn(derbys, derbys.permitirRepeticiones);
+          }
+          if (from < 4) {
+            await m.addColumn(derbys, derbys.diferenciaMaxPeso);
+            await m.addColumn(derbys, derbys.validacionEstricta);
+          }
+          if (from < 5) {
+            await m.addColumn(rondas, rondas.byePartidos);
+          }
+          if (from < 6) {
+            await m.addColumn(partidos, partidos.esComodin);
+            await m.addColumn(rondas, rondas.doblesPartidos);
+          }
+        },
+        beforeOpen: (details) async {
+          await customStatement('PRAGMA foreign_keys = ON');
+          await customStatement('PRAGMA journal_mode = WAL');
+        },
+      );
 }
 
 LazyDatabase _openConnection() {

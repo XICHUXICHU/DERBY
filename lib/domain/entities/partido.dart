@@ -1,5 +1,6 @@
 /// Modelo puro de dominio: Partido
-/// Un partido tiene exactamente 4 gallos: 3 libres + 1 base.
+/// Un partido tiene gallos P.L. (libres) que participan en el sorteo.
+/// Opcionalmente puede tener un gallo base (solo para registro).
 class Partido {
   final int id;
   final String nombre;

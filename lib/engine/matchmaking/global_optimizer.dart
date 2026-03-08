@@ -49,6 +49,10 @@ class GlobalMatchingOptimizer {
   /// Máximo de iteraciones de backtracking minimax por ronda.
   static const int _maxBtIteraciones = 500000;
 
+  /// Umbral de partidos por ronda: con más partidos se usa greedy en vez de
+  /// backtracking (el backtracking es exponencial en el número de pares).
+  static const int _umbralBtPartidos = 16;
+
   GlobalMatchingOptimizer({
     required this.compadres,
     this.diferenciaMaxPeso = 0.0,
@@ -133,8 +137,9 @@ class GlobalMatchingOptimizer {
     final gallosPorPartido = <int, List<Gallo>>{};
     for (final g in gallosPL) {
       if (!partidosActivos.contains(g.partidoId) &&
-          g.partidoId != partidoDobleId)
+          g.partidoId != partidoDobleId) {
         continue;
+      }
       gallosPorPartido.putIfAbsent(g.partidoId, () => []).add(g);
     }
     // Ordenar cada partido's gallos por peso
@@ -472,7 +477,7 @@ class GlobalMatchingOptimizer {
     Map<int, int> partidosBye = const {},
   }) {
     final matchings = <int, List<ParEmparejado>>{};
-    final enfrentamientosPrevios = <(int, int)>{};
+    final conteoEnfrentamientos = <(int, int), int>{};
 
     for (var r = 0; r < numRondasPL; r++) {
       final gallosRonda = asignacion[r] ?? [];
@@ -491,41 +496,63 @@ class GlobalMatchingOptimizer {
         partidosRonda.remove(partidosBye[r]);
       }
 
-      // Build graph
+      // Build graph — siempre pasar conteo para penalizar repeticiones.
       final graphBuilder = GraphBuilder(
         compadres: compadres,
         gallosUsados: const {},
-        enfrentamientosPrevios: permitirRepeticiones
-            ? const {}
-            : enfrentamientosPrevios,
+        conteoEnfrentamientos: conteoEnfrentamientos,
         diferenciaMaxPeso: diferenciaMaxPeso,
-        esRondaBase: false,
       );
 
-      final aristas = permitirRepeticiones
-          ? graphBuilder.construirGrafo(gallosRonda)
-          : _construirAristasConPrioridad(graphBuilder, gallosRonda);
+      final grafoPriorizado = graphBuilder.construirGrafoPriorizado(
+        gallosRonda,
+      );
 
       // Solve minimax
       final isDobleRonda = r == rondaDobleIndex && partidoDobleId != null;
 
+      // Fase 1: intentar sin repetir contrincantes (aristas preferidas).
       List<ParEmparejado> pares;
       if (isDobleRonda) {
         pares = _resolverMinimaxDoble(
-          aristas: aristas,
+          aristas: grafoPriorizado.preferidas,
           partidosRonda: partidosRonda,
           partidoDobleId: partidoDobleId,
         );
       } else {
         pares = _resolverMinimax(
-          aristas: aristas,
+          aristas: grafoPriorizado.preferidas,
           partidosRonda: partidosRonda,
         );
       }
 
+      // Fase 2: si incompleto, incluir aristas de respaldo (con penalización).
+      final totalPares = isDobleRonda
+          ? (partidosRonda.length + 1) ~/ 2
+          : partidosRonda.length ~/ 2;
+      if (pares.length < totalPares && grafoPriorizado.respaldo.isNotEmpty) {
+        final todasAristas = [
+          ...grafoPriorizado.preferidas,
+          ...grafoPriorizado.respaldo,
+        ];
+        todasAristas.sort((a, b) => a.costoTotal.compareTo(b.costoTotal));
+        if (isDobleRonda) {
+          pares = _resolverMinimaxDoble(
+            aristas: todasAristas,
+            partidosRonda: partidosRonda,
+            partidoDobleId: partidoDobleId,
+          );
+        } else {
+          pares = _resolverMinimax(
+            aristas: todasAristas,
+            partidosRonda: partidosRonda,
+          );
+        }
+      }
+
       matchings[r] = pares;
 
-      // Track enfrentamientos for anti-repetition
+      // Track enfrentamientos for anti-repetition (con conteo)
       for (final p in pares) {
         final a = p.galloA.partidoId < p.galloB.partidoId
             ? p.galloA.partidoId
@@ -533,21 +560,12 @@ class GlobalMatchingOptimizer {
         final b = p.galloA.partidoId < p.galloB.partidoId
             ? p.galloB.partidoId
             : p.galloA.partidoId;
-        enfrentamientosPrevios.add((a, b));
+        conteoEnfrentamientos[(a, b)] =
+            (conteoEnfrentamientos[(a, b)] ?? 0) + 1;
       }
     }
 
     return matchings;
-  }
-
-  /// Construye aristas con prioridad (preferidas + respaldo).
-  List<AristaGrafo> _construirAristasConPrioridad(
-    GraphBuilder builder,
-    List<Gallo> gallos,
-  ) {
-    final priorizadas = builder.construirGrafoPriorizado(gallos);
-    // Use preferidas first, then backup, both sorted by weight asc
-    return [...priorizadas.preferidas, ...priorizadas.respaldo];
   }
 
   /// Resuelve matching minimax para una ronda normal (cada partido 1 vez).
@@ -558,13 +576,38 @@ class GlobalMatchingOptimizer {
     final totalPares = partidosRonda.length ~/ 2;
     if (totalPares == 0) return [];
 
-    // Sort aristas by weight ascending (for efficient pruning)
-    final sorted = List.of(aristas)..sort((a, b) => a.peso.compareTo(b.peso));
+    // Sort aristas by costoTotal ascending: non-penalized (sin repetición)
+    // primero, penalizadas después. Esto garantiza que el solver explore
+    // soluciones sin repetir contrincantes antes de considerar repeticiones.
+    final sorted = List.of(aristas)
+      ..sort((a, b) => a.costoTotal.compareTo(b.costoTotal));
+
+    // Para derbies con muchos partidos, usar greedy + reparación
+    // (el backtracking es exponencial y se cuelga).
+    if (partidosRonda.length > _umbralBtPartidos) {
+      return _matchingGranDerby(aristas: sorted, partidosRonda: partidosRonda);
+    }
+
+    // Seedear con greedy para tener cota superior desde el inicio;
+    // sin esto el backtracking explora sin poda efectiva.
+    final greedySeed = _greedyFallback(
+      aristas: sorted,
+      partidosRonda: partidosRonda,
+    );
 
     // Backtracking minimax: minimize the maximum diff
     List<ParEmparejado>? mejorSolucion;
     var mejorMaxDiff = double.infinity;
     var mejorSuma = double.infinity;
+
+    if (greedySeed.length == totalPares) {
+      mejorSolucion = greedySeed;
+      mejorMaxDiff = greedySeed.fold<double>(
+        0.0,
+        (m, p) => p.diferencia > m ? p.diferencia : m,
+      );
+      mejorSuma = greedySeed.fold<double>(0.0, (s, p) => s + p.diferencia);
+    }
     var iteraciones = 0;
 
     void buscar(
@@ -661,7 +704,14 @@ class GlobalMatchingOptimizer {
     final totalPares = (partidosRonda.length + 1) ~/ 2;
     if (totalPares == 0) return [];
 
-    final sorted = List.of(aristas)..sort((a, b) => a.peso.compareTo(b.peso));
+    // Sort by costoTotal: sin repetición primero, penalizadas después.
+    final sorted = List.of(aristas)
+      ..sort((a, b) => a.costoTotal.compareTo(b.costoTotal));
+
+    // Para derbies grandes, usar greedy directamente.
+    if (partidosRonda.length > _umbralBtPartidos) {
+      return _greedyFallback(aristas: sorted, partidosRonda: partidosRonda);
+    }
 
     List<ParEmparejado>? mejorSolucion;
     var mejorMaxDiff = double.infinity;
@@ -705,8 +755,9 @@ class GlobalMatchingOptimizer {
         if (usosA >= limA || usosB >= limB) continue;
 
         if (gallosUsados.contains(ar.galloA.id) ||
-            gallosUsados.contains(ar.galloB.id))
+            gallosUsados.contains(ar.galloB.id)) {
           continue;
+        }
 
         if (!partidosRonda.contains(pA) && pA != partidoDobleId) continue;
         if (!partidosRonda.contains(pB) && pB != partidoDobleId) continue;
@@ -763,8 +814,9 @@ class GlobalMatchingOptimizer {
       final pB = ar.galloB.partidoId;
       if (usados.contains(pA) || usados.contains(pB)) continue;
       if (gallosUsados.contains(ar.galloA.id) ||
-          gallosUsados.contains(ar.galloB.id))
+          gallosUsados.contains(ar.galloB.id)) {
         continue;
+      }
       if (!partidosRonda.contains(pA) || !partidosRonda.contains(pB)) continue;
 
       pares.add(
@@ -778,6 +830,138 @@ class GlobalMatchingOptimizer {
       usados.add(pB);
       gallosUsados.add(ar.galloA.id);
       gallosUsados.add(ar.galloB.id);
+    }
+    return pares;
+  }
+
+  /// Matching para derbies grandes (>16 partidos): greedy seguido de
+  /// reparación por caminos aumentantes (augmenting paths).
+  ///
+  /// Garantiza matching de máxima cardinalidad si existe matching perfecto
+  /// en el grafo de partidos.
+  List<ParEmparejado> _matchingGranDerby({
+    required List<AristaGrafo> aristas,
+    required Set<int> partidosRonda,
+  }) {
+    final totalPares = partidosRonda.length ~/ 2;
+    if (totalPares == 0) return [];
+
+    // ── Paso 1: Greedy para matching inicial ──
+    final matchPid = <int, int>{};
+    final matchArista = <int, AristaGrafo>{};
+
+    for (final a in aristas) {
+      final pA = a.galloA.partidoId;
+      final pB = a.galloB.partidoId;
+      if (!partidosRonda.contains(pA) || !partidosRonda.contains(pB)) continue;
+      if (matchPid.containsKey(pA) || matchPid.containsKey(pB)) continue;
+      matchPid[pA] = pB;
+      matchPid[pB] = pA;
+      matchArista[pA] = a;
+      matchArista[pB] = a;
+    }
+
+    final unmatched = partidosRonda
+        .where((p) => !matchPid.containsKey(p))
+        .toList();
+    if (unmatched.isEmpty) {
+      return _buildParesDesdeMatch(matchPid, matchArista, partidosRonda);
+    }
+
+    // ── Paso 2: Construir adyacencia entre partidos ──
+    // Para cada par de partidos, guardar la mejor arista (menor diff).
+    final mejorAristaPar = <(int, int), AristaGrafo>{};
+    for (final a in aristas) {
+      final pA = a.galloA.partidoId;
+      final pB = a.galloB.partidoId;
+      if (!partidosRonda.contains(pA) || !partidosRonda.contains(pB)) continue;
+      final key = pA < pB ? (pA, pB) : (pB, pA);
+      if (!mejorAristaPar.containsKey(key) ||
+          a.peso < mejorAristaPar[key]!.peso) {
+        mejorAristaPar[key] = a;
+      }
+    }
+
+    final adj = <int, List<int>>{};
+    for (final pid in partidosRonda) {
+      adj[pid] = [];
+    }
+    for (final key in mejorAristaPar.keys) {
+      adj[key.$1]!.add(key.$2);
+      adj[key.$2]!.add(key.$1);
+    }
+
+    // ── Paso 3: Caminos aumentantes para completar matching ──
+    for (final start in unmatched) {
+      if (matchPid.containsKey(start)) continue;
+
+      // BFS: niveles alternan arista libre → arista emparejada
+      final parent = <int, int>{};
+      final visited = <int>{start};
+      final queue = <int>[start];
+      int? freeEnd;
+
+      while (queue.isNotEmpty && freeEnd == null) {
+        final u = queue.removeAt(0);
+        for (final v in adj[u]!) {
+          if (visited.contains(v)) continue;
+          visited.add(v);
+          parent[v] = u;
+          if (!matchPid.containsKey(v)) {
+            freeEnd = v;
+            break;
+          }
+          // v emparejado → seguir arista emparejada a su partner w
+          final w = matchPid[v]!;
+          if (!visited.contains(w)) {
+            visited.add(w);
+            parent[w] = v;
+            queue.add(w);
+          }
+        }
+      }
+
+      if (freeEnd != null) {
+        // Recorrer camino aumentante y voltear emparejamientos:
+        // start -(libre)→ n1 -(match)→ m1 -(libre)→ ... -(libre)→ freeEnd
+        var cur = freeEnd;
+        while (true) {
+          final prev = parent[cur]!;
+          final key = prev < cur ? (prev, cur) : (cur, prev);
+          final arista = mejorAristaPar[key]!;
+
+          matchPid[cur] = prev;
+          matchPid[prev] = cur;
+          matchArista[cur] = arista;
+          matchArista[prev] = arista;
+
+          if (prev == start) break;
+          final prevPrev = parent[prev]!;
+          cur = prevPrev;
+        }
+      }
+    }
+
+    return _buildParesDesdeMatch(matchPid, matchArista, partidosRonda);
+  }
+
+  /// Convierte el mapa de matching a lista de [ParEmparejado].
+  List<ParEmparejado> _buildParesDesdeMatch(
+    Map<int, int> matchPid,
+    Map<int, AristaGrafo> matchArista,
+    Set<int> partidosRonda,
+  ) {
+    final pares = <ParEmparejado>[];
+    final seen = <int>{};
+    for (final pid in partidosRonda) {
+      if (seen.contains(pid) || !matchPid.containsKey(pid)) continue;
+      final partner = matchPid[pid]!;
+      seen.add(pid);
+      seen.add(partner);
+      final a = matchArista[pid]!;
+      pares.add(
+        ParEmparejado(galloA: a.galloA, galloB: a.galloB, diferencia: a.peso),
+      );
     }
     return pares;
   }
@@ -801,6 +985,17 @@ class GlobalMatchingOptimizer {
     int rondaDobleIndex = -1,
     Map<int, int> partidosBye = const {},
   }) {
+    // Con muchos partidos la mejora local es muy costosa (re-solves × swaps);
+    // saltar directamente para derbies grandes.
+    if (partidosActivos.length > _umbralBtPartidos) {
+      return ResultadoGlobal(
+        asignacion: asignacion,
+        matchings: matchings,
+        maxDiferencia: _calcGlobalMaxDiff(matchings),
+        sumaTotal: _calcGlobalSum(matchings),
+      );
+    }
+
     var currentMaxDiff = _calcGlobalMaxDiff(matchings);
     var currentSum = _calcGlobalSum(matchings);
     var mejoro = true;
@@ -843,34 +1038,35 @@ class GlobalMatchingOptimizer {
               if (r1 == rondaDobleIndex || r2 == rondaDobleIndex) continue;
 
               // Find gallo of pidA in r1 and r2
-              final galloA_r1 = asignacion[r1]!
+              final galloaR1 = asignacion[r1]!
                   .where((g) => g.partidoId == pidA)
                   .firstOrNull;
-              final galloA_r2 = asignacion[r2]!
+              final galloaR2 = asignacion[r2]!
                   .where((g) => g.partidoId == pidA)
                   .firstOrNull;
-              final galloB_r1 = asignacion[r1]!
+              final gallobR1 = asignacion[r1]!
                   .where((g) => g.partidoId == pidB)
                   .firstOrNull;
-              final galloB_r2 = asignacion[r2]!
+              final gallobR2 = asignacion[r2]!
                   .where((g) => g.partidoId == pidB)
                   .firstOrNull;
 
-              if (galloA_r1 == null ||
-                  galloA_r2 == null ||
-                  galloB_r1 == null ||
-                  galloB_r2 == null)
+              if (galloaR1 == null ||
+                  galloaR2 == null ||
+                  gallobR1 == null ||
+                  gallobR2 == null) {
                 continue;
+              }
 
               // Swap: pidA's gallo in r1 goes to r2 and vice versa
               //        pidB's gallo in r1 goes to r2 and vice versa
               // Actually we swap BOTH partidos' gallos between the two rounds
-              _doSwap(asignacion, r1, r2, pidA, galloA_r1, galloA_r2);
-              _doSwap(asignacion, r1, r2, pidB, galloB_r1, galloB_r2);
+              _doSwap(asignacion, r1, r2, pidA, galloaR1, galloaR2);
+              _doSwap(asignacion, r1, r2, pidB, gallobR1, gallobR2);
 
               // Re-solve matchings for r1 and r2
               final newMatchings = Map<int, List<ParEmparejado>>.of(matchings);
-              final enfPrevios = _buildEnfrentamientosPreviosExcluding(
+              final conteoEnfPrevios = _buildConteoEnfrentamientosExcluding(
                 matchings,
                 {r1, r2},
               );
@@ -887,24 +1083,35 @@ class GlobalMatchingOptimizer {
                 final gb = GraphBuilder(
                   compadres: compadres,
                   gallosUsados: const {},
-                  enfrentamientosPrevios: permitirRepeticiones
-                      ? const {}
-                      : enfPrevios,
+                  conteoEnfrentamientos: conteoEnfPrevios,
                   diferenciaMaxPeso: diferenciaMaxPeso,
-                  esRondaBase: false,
                 );
 
-                final ars = permitirRepeticiones
-                    ? gb.construirGrafo(gallosRonda)
-                    : _construirAristasConPrioridad(gb, gallosRonda);
+                final grafoPri = gb.construirGrafoPriorizado(gallosRonda);
 
-                final pares = _resolverMinimax(
-                  aristas: ars,
+                // Fase 1: sin repetir
+                var pares = _resolverMinimax(
+                  aristas: grafoPri.preferidas,
                   partidosRonda: partidosRonda,
                 );
+
+                // Fase 2: con respaldo si incompleto
+                final totalParesR = partidosRonda.length ~/ 2;
+                if (pares.length < totalParesR &&
+                    grafoPri.respaldo.isNotEmpty) {
+                  final todasArs = [
+                    ...grafoPri.preferidas,
+                    ...grafoPri.respaldo,
+                  ];
+                  todasArs.sort((a, b) => a.costoTotal.compareTo(b.costoTotal));
+                  pares = _resolverMinimax(
+                    aristas: todasArs,
+                    partidosRonda: partidosRonda,
+                  );
+                }
                 newMatchings[r] = pares;
 
-                // Update enfPrevios for next round
+                // Update conteoEnfPrevios for next round
                 for (final p in pares) {
                   final a = p.galloA.partidoId < p.galloB.partidoId
                       ? p.galloA.partidoId
@@ -912,15 +1119,27 @@ class GlobalMatchingOptimizer {
                   final b = p.galloA.partidoId < p.galloB.partidoId
                       ? p.galloB.partidoId
                       : p.galloA.partidoId;
-                  enfPrevios.add((a, b));
+                  conteoEnfPrevios[(a, b)] =
+                      (conteoEnfPrevios[(a, b)] ?? 0) + 1;
                 }
               }
 
               final newMaxDiff = _calcGlobalMaxDiff(newMatchings);
               final newSum = _calcGlobalSum(newMatchings);
+              final newReps = _contarRepeticionesGlobal(newMatchings);
+              final curReps = _contarRepeticionesGlobal(matchings);
 
-              if (newMaxDiff < currentMaxDiff ||
-                  (newMaxDiff == currentMaxDiff && newSum < currentSum)) {
+              // Aceptar swap si mejora maxDiff, o a igual maxDiff reduce
+              // repeticiones, o a igual maxDiff e igual repeticiones
+              // reduce la suma total.
+              final mejoraSolucion =
+                  newMaxDiff < currentMaxDiff ||
+                  (newMaxDiff == currentMaxDiff && newReps < curReps) ||
+                  (newMaxDiff == currentMaxDiff &&
+                      newReps == curReps &&
+                      newSum < currentSum);
+
+              if (mejoraSolucion) {
                 // Accept swap
                 currentMaxDiff = newMaxDiff;
                 currentSum = newSum;
@@ -929,8 +1148,8 @@ class GlobalMatchingOptimizer {
                 mejoro = true;
               } else {
                 // Revert swap
-                _doSwap(asignacion, r1, r2, pidA, galloA_r2, galloA_r1);
-                _doSwap(asignacion, r1, r2, pidB, galloB_r2, galloB_r1);
+                _doSwap(asignacion, r1, r2, pidA, galloaR2, galloaR1);
+                _doSwap(asignacion, r1, r2, pidB, gallobR2, gallobR1);
               }
             }
           }
@@ -961,12 +1180,12 @@ class GlobalMatchingOptimizer {
     asignacion[r2]!.add(galloR1);
   }
 
-  /// Build set of enfrentamientos previos excluding certain rounds.
-  Set<(int, int)> _buildEnfrentamientosPreviosExcluding(
+  /// Build map of enfrentamientos conteo excluding certain rounds.
+  Map<(int, int), int> _buildConteoEnfrentamientosExcluding(
     Map<int, List<ParEmparejado>> matchings,
     Set<int> excludeRounds,
   ) {
-    final set = <(int, int)>{};
+    final conteo = <(int, int), int>{};
     for (final entry in matchings.entries) {
       if (excludeRounds.contains(entry.key)) continue;
       for (final p in entry.value) {
@@ -976,10 +1195,10 @@ class GlobalMatchingOptimizer {
         final b = p.galloA.partidoId < p.galloB.partidoId
             ? p.galloB.partidoId
             : p.galloA.partidoId;
-        set.add((a, b));
+        conteo[(a, b)] = (conteo[(a, b)] ?? 0) + 1;
       }
     }
-    return set;
+    return conteo;
   }
 
   // ═══════════════════════════════════════════════════════
@@ -1004,6 +1223,28 @@ class GlobalMatchingOptimizer {
       }
     }
     return sum;
+  }
+
+  /// Cuenta cuántos pares de partidos se repiten entre rondas.
+  int _contarRepeticionesGlobal(Map<int, List<ParEmparejado>> matchings) {
+    final conteo = <(int, int), int>{};
+    for (final pares in matchings.values) {
+      for (final p in pares) {
+        final a = p.galloA.partidoId < p.galloB.partidoId
+            ? p.galloA.partidoId
+            : p.galloB.partidoId;
+        final b = p.galloA.partidoId < p.galloB.partidoId
+            ? p.galloB.partidoId
+            : p.galloA.partidoId;
+        conteo[(a, b)] = (conteo[(a, b)] ?? 0) + 1;
+      }
+    }
+    // Contar total de repeticiones (veces > 1).
+    var reps = 0;
+    for (final v in conteo.values) {
+      if (v > 1) reps += v - 1;
+    }
+    return reps;
   }
 
   /// Generate all permutations of a list.

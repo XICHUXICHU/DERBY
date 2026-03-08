@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import '../../main.dart'
-    show partidoRepository, galloRepository, derbyRepository;
+import '../../main.dart' show partidoRepository, galloRepository, derbyRepository;
 import '../../data/database/app_database.dart';
 
 /// Formulario de captura de partido con sus 4 gallos y depósito.
@@ -106,9 +105,8 @@ class _PartidoFormScreenState extends State<PartidoFormScreen> {
 
     final propiosIds = <int>{};
     if (widget.esEdicion) {
-      final propios = await galloRepository.listarPorPartido(
-        widget.partidoExistente!.id,
-      );
+      final propios = await galloRepository
+          .listarPorPartido(widget.partidoExistente!.id);
       propiosIds.addAll(propios.map((g) => g.id));
     }
 
@@ -130,7 +128,10 @@ class _PartidoFormScreenState extends State<PartidoFormScreen> {
     final anillo = value.trim().toUpperCase();
 
     // Duplicados dentro del formulario
-    final todos = [_baseAnilloCtrl, ..._plAnilloCtrls];
+    final todos = [
+      _baseAnilloCtrl,
+      ..._plAnilloCtrls,
+    ];
     int veces = 0;
     for (final ctrl in todos) {
       if (ctrl.text.trim().toUpperCase() == anillo) veces++;
@@ -179,9 +180,8 @@ class _PartidoFormScreenState extends State<PartidoFormScreen> {
   }
 
   Future<void> _cargarGallosExistentes() async {
-    final gallos = await galloRepository.listarPorPartido(
-      widget.partidoExistente!.id,
-    );
+    final gallos = await galloRepository
+        .listarPorPartido(widget.partidoExistente!.id);
 
     final base = gallos.where((g) => g.esBase).firstOrNull;
     final pls = gallos.where((g) => !g.esBase).toList();
@@ -379,9 +379,9 @@ class _PartidoFormScreenState extends State<PartidoFormScreen> {
                       padding: const EdgeInsets.only(bottom: 8),
                       child: Text(
                         'Peso requerido: ${_derbyConfig!.pesoGalloBase.toStringAsFixed(0)}g',
-                        style: Theme.of(
-                          context,
-                        ).textTheme.bodySmall?.copyWith(color: cs.tertiary),
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: cs.tertiary,
+                            ),
                       ),
                     ),
                   if (_derbyConfig != null && _derbyConfig!.pesoGalloBase == 0)
@@ -390,8 +390,7 @@ class _PartidoFormScreenState extends State<PartidoFormScreen> {
                     anilloCtrl: _baseAnilloCtrl,
                     pesoCtrl: _basePesoCtrl,
                     labelAnillo: 'Anillo gallo base',
-                    labelPeso:
-                        _derbyConfig != null && _derbyConfig!.pesoGalloBase > 0
+                    labelPeso: _derbyConfig != null && _derbyConfig!.pesoGalloBase > 0
                         ? 'Peso (${_derbyConfig!.pesoGalloBase.toStringAsFixed(0)}g)'
                         : 'Peso (gramos)',
                     anilloValidator: _validarAnillo,
@@ -412,9 +411,9 @@ class _PartidoFormScreenState extends State<PartidoFormScreen> {
                       padding: const EdgeInsets.only(bottom: 8),
                       child: Text(
                         'Rango aceptado: ${_derbyConfig!.pesoMinimo.toStringAsFixed(0)}g – ${_derbyConfig!.pesoMaximo.toStringAsFixed(0)}g',
-                        style: Theme.of(
-                          context,
-                        ).textTheme.bodySmall?.copyWith(color: cs.secondary),
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: cs.secondary,
+                            ),
                       ),
                     ),
                   for (var i = 0; i < 3; i++) ...[
@@ -454,12 +453,11 @@ class _PartidoFormScreenState extends State<PartidoFormScreen> {
                               ),
                               keyboardType:
                                   const TextInputType.numberWithOptions(
-                                    decimal: true,
-                                  ),
+                                decimal: true,
+                              ),
                               inputFormatters: [
                                 FilteringTextInputFormatter.allow(
-                                  RegExp(r'^\d+\.?\d{0,2}'),
-                                ),
+                                    RegExp(r'^\d+\.?\d{0,2}')),
                               ],
                             ),
                           ),
@@ -468,7 +466,9 @@ class _PartidoFormScreenState extends State<PartidoFormScreen> {
                             children: [
                               Text(
                                 'PAGADO',
-                                style: Theme.of(context).textTheme.labelSmall
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .labelSmall
                                     ?.copyWith(
                                       fontWeight: FontWeight.bold,
                                       letterSpacing: 1.2,
@@ -493,9 +493,7 @@ class _PartidoFormScreenState extends State<PartidoFormScreen> {
                   // ── COMODÍN ──
                   Container(
                     padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 8,
-                    ),
+                        horizontal: 16, vertical: 8),
                     decoration: BoxDecoration(
                       color: cs.tertiaryContainer.withValues(alpha: 0.3),
                       borderRadius: BorderRadius.circular(12),
@@ -507,31 +505,26 @@ class _PartidoFormScreenState extends State<PartidoFormScreen> {
                     ),
                     child: Row(
                       children: [
-                        Icon(
-                          Icons.style,
-                          color: _esComodin ? cs.tertiary : cs.onSurfaceVariant,
-                        ),
+                        Icon(Icons.style,
+                            color:
+                                _esComodin ? cs.tertiary : cs.onSurfaceVariant),
                         const SizedBox(width: 12),
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
+                              Text('Comodín',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    color: _esComodin
+                                        ? cs.tertiary
+                                        : cs.onSurface,
+                                  )),
                               Text(
-                                'Comodín',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  color: _esComodin
-                                      ? cs.tertiary
-                                      : cs.onSurface,
-                                ),
-                              ),
-                              Text(
-                                'Partido comodín que entra cuando hay número impar',
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  color: cs.onSurfaceVariant,
-                                ),
-                              ),
+                                  'Partido comodín que entra cuando hay número impar',
+                                  style: TextStyle(
+                                      fontSize: 11,
+                                      color: cs.onSurfaceVariant)),
                             ],
                           ),
                         ),
@@ -550,8 +543,7 @@ class _PartidoFormScreenState extends State<PartidoFormScreen> {
                   FilledButton.icon(
                     onPressed: _guardando ? null : _guardar,
                     icon: Icon(
-                      widget.esEdicion ? Icons.save : Icons.add_circle,
-                    ),
+                        widget.esEdicion ? Icons.save : Icons.add_circle),
                     label: Text(
                       widget.esEdicion
                           ? 'GUARDAR CAMBIOS'
@@ -601,13 +593,15 @@ class _SectionHeader extends StatelessWidget {
         Text(
           title,
           style: Theme.of(context).textTheme.titleSmall?.copyWith(
-            color: color,
-            fontWeight: FontWeight.bold,
-            letterSpacing: 1.5,
-          ),
+                color: color,
+                fontWeight: FontWeight.bold,
+                letterSpacing: 1.5,
+              ),
         ),
         const SizedBox(width: 8),
-        Expanded(child: Divider(color: color.withValues(alpha: 0.3))),
+        Expanded(
+          child: Divider(color: color.withValues(alpha: 0.3)),
+        ),
       ],
     );
   }
@@ -667,8 +661,7 @@ class _GalloFields extends StatelessWidget {
             inputFormatters: [
               FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d{0,1}')),
             ],
-            validator:
-                pesoValidator ??
+            validator: pesoValidator ??
                 (anilloValidator != null
                     ? (v) {
                         if (v == null || v.trim().isEmpty) {

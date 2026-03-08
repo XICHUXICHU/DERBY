@@ -97,33 +97,10 @@ class MatchingSolver {
       }
     }
 
-    // Si se permiten repeticiones, usar todas las aristas directamente.
-    if (permitirRepeticiones) {
-      final todasAristas = graphBuilder.construirGrafo(gallosDisponibles);
-
-      final resultado = _resolverConAristas(
-        aristas: todasAristas,
-        partidosActivos: partidosActivos,
-        gallosPorPartido: gallosPorPartido,
-        rondaNumero: rondaNumero,
-      );
-
-      if (resultado.pares.isNotEmpty) {
-        return ResultadoMatching(
-          pares: resultado.pares,
-          sumaTotal: resultado.sumaTotal,
-          partidosSinEmparejar: resultado.partidosSinEmparejar,
-          usaRepeticiones: true,
-        );
-      }
-
-      throw MatchingImposibleException(
-        rondaNumero: rondaNumero,
-        gallosDisponibles: gallosDisponibles.length,
-        restriccionesActivas: todasAristas.length,
-        detalle: 'No se encontró matching válido (repeticiones permitidas).',
-      );
-    }
+    // Si se permiten repeticiones, seguir al flujo 2-fases normal.
+    // La fase 1 intenta sin repetir; la fase 2 agrega respaldo con
+    // penalización. Esto minimiza repeticiones incluso cuando están
+    // permitidas como fallback.
 
     // Fase 1: Intentar con aristas preferidas (sin repetir contrincantes)
     final grafoPriorizado = graphBuilder.construirGrafoPriorizado(
@@ -142,11 +119,12 @@ class MatchingSolver {
     }
 
     // Fase 2: Incluir aristas de respaldo (permite repetir contrincantes)
+    // Ordenar por costoTotal: respaldo lleva penalización que las empuja al final.
     final todasAristas = [
       ...grafoPriorizado.preferidas,
       ...grafoPriorizado.respaldo,
     ];
-    todasAristas.sort((a, b) => a.peso.compareTo(b.peso));
+    todasAristas.sort((a, b) => a.costoTotal.compareTo(b.costoTotal));
 
     resultado = _resolverConAristas(
       aristas: todasAristas,
@@ -193,8 +171,11 @@ class MatchingSolver {
       }
     }
 
-    // Greedy como respaldo o para derbys grandes
-    return _greedy(aristas: aristas, partidosActivos: partidosActivos);
+    // Greedy + augmenting-path repair para derbys grandes
+    return _greedyConReparacion(
+      aristas: aristas,
+      partidosActivos: partidosActivos,
+    );
   }
 
   /// Algoritmo greedy: toma aristas por peso ascendente.
@@ -250,6 +231,151 @@ class MatchingSolver {
     );
   }
 
+  /// Greedy seguido de reparación por caminos aumentantes (augmenting paths)
+  /// para maximizar la cardinalidad del matching.
+  ///
+  /// El greedy puro puede dejar partidos varados por restricciones de peso;
+  /// la reparación intenta reasignar emparejamientos para acomodar a los
+  /// partidos sobrantes.
+  ResultadoMatching _greedyConReparacion({
+    required List<AristaGrafo> aristas,
+    required Set<int> partidosActivos,
+  }) {
+    final totalPares = partidosActivos.length ~/ 2;
+    if (totalPares == 0) {
+      return ResultadoMatching(
+        pares: const [],
+        sumaTotal: 0,
+        partidosSinEmparejar: partidosActivos.toList(),
+      );
+    }
+
+    // Paso 1: Greedy inicial
+    final matchPid = <int, int>{};
+    final matchArista = <int, AristaGrafo>{};
+
+    for (final a in aristas) {
+      final pA = a.galloA.partidoId;
+      final pB = a.galloB.partidoId;
+      if (!partidosActivos.contains(pA) || !partidosActivos.contains(pB)) {
+        continue;
+      }
+      if (matchPid.containsKey(pA) || matchPid.containsKey(pB)) continue;
+      matchPid[pA] = pB;
+      matchPid[pB] = pA;
+      matchArista[pA] = a;
+      matchArista[pB] = a;
+    }
+
+    final unmatched = partidosActivos
+        .where((p) => !matchPid.containsKey(p))
+        .toList();
+
+    if (unmatched.length <= (partidosActivos.length.isOdd ? 1 : 0)) {
+      return _buildResultadoDesdeMatch(matchPid, matchArista, partidosActivos);
+    }
+
+    // Paso 2: Adyacencia por partidos (mejor arista por par)
+    final mejorAristaPar = <(int, int), AristaGrafo>{};
+    for (final a in aristas) {
+      final pA = a.galloA.partidoId;
+      final pB = a.galloB.partidoId;
+      if (!partidosActivos.contains(pA) || !partidosActivos.contains(pB)) {
+        continue;
+      }
+      final key = pA < pB ? (pA, pB) : (pB, pA);
+      if (!mejorAristaPar.containsKey(key) ||
+          a.peso < mejorAristaPar[key]!.peso) {
+        mejorAristaPar[key] = a;
+      }
+    }
+
+    final adj = <int, List<int>>{};
+    for (final pid in partidosActivos) {
+      adj[pid] = [];
+    }
+    for (final key in mejorAristaPar.keys) {
+      adj[key.$1]!.add(key.$2);
+      adj[key.$2]!.add(key.$1);
+    }
+
+    // Paso 3: Caminos aumentantes (BFS)
+    for (final start in unmatched) {
+      if (matchPid.containsKey(start)) continue;
+
+      final parent = <int, int>{};
+      final visited = <int>{start};
+      final queue = <int>[start];
+      int? freeEnd;
+
+      while (queue.isNotEmpty && freeEnd == null) {
+        final u = queue.removeAt(0);
+        for (final v in adj[u]!) {
+          if (visited.contains(v)) continue;
+          visited.add(v);
+          parent[v] = u;
+          if (!matchPid.containsKey(v)) {
+            freeEnd = v;
+            break;
+          }
+          final w = matchPid[v]!;
+          if (!visited.contains(w)) {
+            visited.add(w);
+            parent[w] = v;
+            queue.add(w);
+          }
+        }
+      }
+
+      if (freeEnd != null) {
+        var cur = freeEnd;
+        while (true) {
+          final prev = parent[cur]!;
+          final key = prev < cur ? (prev, cur) : (cur, prev);
+          final arista = mejorAristaPar[key]!;
+          matchPid[cur] = prev;
+          matchPid[prev] = cur;
+          matchArista[cur] = arista;
+          matchArista[prev] = arista;
+          if (prev == start) break;
+          cur = parent[prev]!;
+        }
+      }
+    }
+
+    return _buildResultadoDesdeMatch(matchPid, matchArista, partidosActivos);
+  }
+
+  /// Convierte mapa de matching a [ResultadoMatching].
+  ResultadoMatching _buildResultadoDesdeMatch(
+    Map<int, int> matchPid,
+    Map<int, AristaGrafo> matchArista,
+    Set<int> partidosActivos,
+  ) {
+    final pares = <ParEmparejado>[];
+    final seen = <int>{};
+    var sumaTotal = 0.0;
+    for (final pid in partidosActivos) {
+      if (seen.contains(pid) || !matchPid.containsKey(pid)) continue;
+      final partner = matchPid[pid]!;
+      seen.add(pid);
+      seen.add(partner);
+      final a = matchArista[pid]!;
+      pares.add(
+        ParEmparejado(galloA: a.galloA, galloB: a.galloB, diferencia: a.peso),
+      );
+      sumaTotal += a.peso;
+    }
+    final sinEmparejar = partidosActivos
+        .where((p) => !seen.contains(p))
+        .toList();
+    return ResultadoMatching(
+      pares: pares,
+      sumaTotal: sumaTotal,
+      partidosSinEmparejar: sinEmparejar,
+    );
+  }
+
   /// Resuelve el matching para una ronda con objetivo **minimax**:
   /// minimiza la diferencia MÁXIMA individual, desempatando por suma total.
   ///
@@ -283,7 +409,7 @@ class MatchingSolver {
         gallosDisponibles,
       );
       aristas = [...priorizadas.preferidas, ...priorizadas.respaldo];
-      aristas.sort((a, b) => a.peso.compareTo(b.peso));
+      aristas.sort((a, b) => a.costoTotal.compareTo(b.costoTotal));
     }
 
     final numPartidos = partidosActivos.length;
@@ -301,6 +427,8 @@ class MatchingSolver {
   }
 
   /// Backtracking minimax: busca matching que minimiza la diferencia MÁXIMA.
+  /// Usa [costoTotal] para ordering/pruning para desfavorecer repeticiones,
+  /// pero el criterio minimax se basa en [peso] (diferencia real).
   ResultadoMatching? _backtrackingMinimax({
     required List<AristaGrafo> aristas,
     required Set<int> partidosActivos,
@@ -356,16 +484,21 @@ class MatchingSolver {
           continue;
         }
 
+        // Minimax usa peso real para el criterio, costoTotal para desempate
         final newMax = arista.peso > maxDiffActual
             ? arista.peso
             : maxDiffActual;
-        if (newMax >= mejorMaxDiff) continue;
+        if (newMax > mejorMaxDiff) continue;
+        if (newMax == mejorMaxDiff &&
+            sumaActual + arista.costoTotal >= mejorSuma) {
+          continue;
+        }
 
         paresActuales.add(
           ParEmparejado(
             galloA: arista.galloA,
             galloB: arista.galloB,
-            diferencia: arista.peso,
+            diferencia: arista.peso, // peso REAL para display
           ),
         );
         partidosUsados.add(pA);
@@ -379,7 +512,7 @@ class MatchingSolver {
           partidosUsados,
           gallosUsados,
           newMax,
-          sumaActual + arista.peso,
+          sumaActual + arista.costoTotal,
         );
 
         paresActuales.removeLast();
@@ -393,15 +526,21 @@ class MatchingSolver {
     buscar(0, [], {}, {}, 0.0, 0.0);
 
     if (mejorSolucion != null) {
-      return ResultadoMatching(pares: mejorSolucion!, sumaTotal: mejorSuma);
+      final sumaReal = mejorSolucion!.fold(
+        0.0,
+        (sum, p) => sum + p.diferencia,
+      );
+      return ResultadoMatching(pares: mejorSolucion!, sumaTotal: sumaReal);
     }
     return null;
   }
 
   /// Backtracking con poda: busca matching perfecto de costo mínimo.
   ///
-  /// Explora aristas en orden de peso, intentando emparejar
-  /// exactamente [totalPares] partidos.
+  /// Explora aristas en orden de costoTotal (peso + penalización),
+  /// intentando emparejar exactamente [totalPares] partidos.
+  /// Usa [costoTotal] para optimización (penaliza repeticiones),
+  /// y [peso] para el diff real en el resultado.
   ResultadoMatching? _backtracking({
     required List<AristaGrafo> aristas,
     required Set<int> partidosActivos,
@@ -425,7 +564,6 @@ class MatchingSolver {
       iteraciones++;
       if (iteraciones > _maxIteraciones) return;
 
-      // ¿Solución completa?
       if (paresActuales.length == totalPares) {
         if (costoActual < mejorCosto) {
           mejorCosto = costoActual;
@@ -434,12 +572,10 @@ class MatchingSolver {
         return;
       }
 
-      // Poda: ¿quedan suficientes aristas?
       final paresRestantes = totalPares - paresActuales.length;
       final aristasRestantes = aristas.length - indiceArista;
       if (aristasRestantes < paresRestantes) return;
 
-      // Poda por costo: si el costo actual ya supera al mejor, cortar
       if (costoActual >= mejorCosto) return;
 
       for (var i = indiceArista; i < aristas.length; i++) {
@@ -447,7 +583,6 @@ class MatchingSolver {
         final pA = arista.galloA.partidoId;
         final pB = arista.galloB.partidoId;
 
-        // Verificar disponibilidad
         if (partidosUsados.contains(pA) || partidosUsados.contains(pB)) {
           continue;
         }
@@ -459,17 +594,14 @@ class MatchingSolver {
           continue;
         }
 
-        // Poda: cota inferior optimista
-        // El mejor caso restante es 0 diferencia para todos los pares restantes
-        // (ya usamos el costo actual como cota)
-        if (costoActual + arista.peso >= mejorCosto) continue;
+        // Usar costoTotal (peso + penalización) para poda y optimización
+        if (costoActual + arista.costoTotal >= mejorCosto) continue;
 
-        // Tomar esta arista
         paresActuales.add(
           ParEmparejado(
             galloA: arista.galloA,
             galloB: arista.galloB,
-            diferencia: arista.peso,
+            diferencia: arista.peso, // peso REAL para display
           ),
         );
         partidosUsados.add(pA);
@@ -482,10 +614,9 @@ class MatchingSolver {
           paresActuales,
           partidosUsados,
           gallosUsados,
-          costoActual + arista.peso,
+          costoActual + arista.costoTotal,
         );
 
-        // Deshacer
         paresActuales.removeLast();
         partidosUsados.remove(pA);
         partidosUsados.remove(pB);
@@ -497,7 +628,12 @@ class MatchingSolver {
     buscar(0, [], {}, {}, 0.0);
 
     if (mejorSolucion != null) {
-      return ResultadoMatching(pares: mejorSolucion!, sumaTotal: mejorCosto);
+      // Calcular suma real (sin penalizaciones) para display
+      final sumaReal = mejorSolucion!.fold(
+        0.0,
+        (sum, p) => sum + p.diferencia,
+      );
+      return ResultadoMatching(pares: mejorSolucion!, sumaTotal: sumaReal);
     }
 
     return null;

@@ -34,7 +34,9 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _crearDerby() async {
     final ok = await Navigator.push<bool>(
       context,
-      MaterialPageRoute(builder: (_) => const DerbyConfigFormScreen()),
+      MaterialPageRoute(
+        builder: (_) => const DerbyConfigFormScreen(),
+      ),
     );
     if (ok == true) _cargarDerbys();
   }
@@ -53,11 +55,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final confirmar = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        icon: const Icon(
-          Icons.warning_amber_rounded,
-          color: Colors.red,
-          size: 48,
-        ),
+        icon: const Icon(Icons.warning_amber_rounded, color: Colors.red, size: 48),
         title: const Text('Eliminar Derby'),
         content: Text(
           '¿Estás seguro de eliminar "${derby.nombre}"?\n\n'
@@ -105,77 +103,80 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Derby Manager'), centerTitle: true),
+      appBar: AppBar(
+        title: const Text('Derby Manager'),
+        centerTitle: true,
+      ),
       body: _cargando
           ? const Center(child: CircularProgressIndicator())
           : _derbys.isEmpty
-          ? Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    Icons.sports_mma,
-                    size: 80,
-                    color: Theme.of(
-                      context,
-                    ).colorScheme.primary.withValues(alpha: 0.5),
+              ? Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.sports_mma,
+                          size: 80,
+                          color: Theme.of(context)
+                              .colorScheme
+                              .primary
+                              .withValues(alpha: 0.5)),
+                      const SizedBox(height: 16),
+                      Text(
+                        'No hay derbys registrados',
+                        style: Theme.of(context).textTheme.titleLarge,
+                      ),
+                      const SizedBox(height: 8),
+                      const Text('Crea uno nuevo para comenzar'),
+                    ],
                   ),
-                  const SizedBox(height: 16),
-                  Text(
-                    'No hay derbys registrados',
-                    style: Theme.of(context).textTheme.titleLarge,
-                  ),
-                  const SizedBox(height: 8),
-                  const Text('Crea uno nuevo para comenzar'),
-                ],
-              ),
-            )
-          : ListView.builder(
-              itemCount: _derbys.length,
-              padding: const EdgeInsets.symmetric(vertical: 8),
-              itemBuilder: (ctx, i) {
-                final derby = _derbys[i];
-                return Card(
-                  child: ListTile(
-                    leading: CircleAvatar(child: Text('${derby.id}')),
-                    title: Text(derby.nombre),
-                    subtitle: Text(
-                      'Rondas: ${derby.rondasTotales} · '
-                      'G=${derby.puntosVictoria} P=${derby.puntosDerrota} T=${derby.puntosEmpate} · '
-                      '${derby.pesoMinimo.toStringAsFixed(0)}–${derby.pesoMaximo.toStringAsFixed(0)}g',
-                    ),
-                    trailing: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        if (derby.estado == 'configuracion')
-                          IconButton(
-                            icon: const Icon(Icons.settings),
-                            tooltip: 'Editar configuración',
-                            onPressed: () => _editarConfig(derby),
-                          ),
-                        IconButton(
-                          icon: Icon(
-                            Icons.delete_outline,
-                            color: Theme.of(context).colorScheme.error,
-                          ),
-                          tooltip: 'Eliminar derby',
-                          onPressed: () => _eliminarDerby(derby),
+                )
+              : ListView.builder(
+                  itemCount: _derbys.length,
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  itemBuilder: (ctx, i) {
+                    final derby = _derbys[i];
+                    return Card(
+                      child: ListTile(
+                        leading: CircleAvatar(
+                          child: Text('${derby.id}'),
                         ),
-                        const Icon(Icons.chevron_right),
-                      ],
-                    ),
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => DerbyGridScreen(derby: derby),
+                        title: Text(derby.nombre),
+                        subtitle: Text(
+                          'Rondas: ${derby.rondasTotales} · '
+                          'G=${derby.puntosVictoria} P=${derby.puntosDerrota} T=${derby.puntosEmpate} · '
+                          '${derby.pesoMinimo.toStringAsFixed(0)}–${derby.pesoMaximo.toStringAsFixed(0)}g',
                         ),
-                      ).then((_) => _cargarDerbys());
-                    },
-                  ),
-                );
-              },
-            ),
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            if (derby.estado == 'configuracion')
+                              IconButton(
+                                icon: const Icon(Icons.settings),
+                                tooltip: 'Editar configuración',
+                                onPressed: () => _editarConfig(derby),
+                              ),
+                            IconButton(
+                              icon: Icon(Icons.delete_outline,
+                                  color: Theme.of(context).colorScheme.error),
+                              tooltip: 'Eliminar derby',
+                              onPressed: () => _eliminarDerby(derby),
+                            ),
+                            const Icon(Icons.chevron_right),
+                          ],
+                        ),
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) =>
+                                  DerbyGridScreen(derby: derby),
+                            ),
+                          ).then((_) => _cargarDerbys());
+                        },
+                      ),
+                    );
+                  },
+                ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _crearDerby,
         icon: const Icon(Icons.add),

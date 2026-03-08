@@ -1,4 +1,5 @@
 /// Excepciones controladas del motor de derby.
+library;
 
 /// Base para todas las excepciones del derby.
 abstract class DerbyException implements Exception {
@@ -71,6 +72,5 @@ class RondaIncompletaException extends DerbyException {
 
 /// Validación de datos de entrada.
 class ValidacionException extends DerbyException {
-  const ValidacionException(String mensaje, [String? detalle])
-      : super(mensaje, detalle);
+  const ValidacionException(super.mensaje, [super.detalle]);
 }

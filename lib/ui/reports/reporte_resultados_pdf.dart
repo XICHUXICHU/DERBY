@@ -292,19 +292,11 @@ class ReporteResultadosPdf {
       children: [
         pw.Text(
           '$_kAppName $_kVersion',
-          style: pw.TextStyle(
-            font: fontLight,
-            fontSize: 7,
-            color: _kGrisTexto,
-          ),
+          style: pw.TextStyle(font: fontLight, fontSize: 7, color: _kGrisTexto),
         ),
         pw.Text(
           'Pág ${ctx.pageNumber} de ${ctx.pagesCount}',
-          style: pw.TextStyle(
-            font: fontLight,
-            fontSize: 8,
-            color: _kGrisTexto,
-          ),
+          style: pw.TextStyle(font: fontLight, fontSize: 8, color: _kGrisTexto),
         ),
       ],
     );
@@ -318,18 +310,20 @@ class ReporteResultadosPdf {
     pw.Font fontLight,
   ) {
     // Landscape letter: ~730pt usables
-    const partidoWidth = 150.0;
+    const filaWidth = 25.0;
+    const partidoWidth = 140.0;
     const puntosWidth = 55.0;
     final rondaWidth =
-        (730.0 - partidoWidth - puntosWidth) / rondasTotales;
+        (730.0 - filaWidth - partidoWidth - puntosWidth) / rondasTotales;
 
     final colWidths = <int, pw.TableColumnWidth>{
-      0: const pw.FixedColumnWidth(partidoWidth),
+      0: const pw.FixedColumnWidth(filaWidth),
+      1: const pw.FixedColumnWidth(partidoWidth),
     };
     for (var r = 0; r < rondasTotales; r++) {
-      colWidths[1 + r] = pw.FixedColumnWidth(rondaWidth);
+      colWidths[2 + r] = pw.FixedColumnWidth(rondaWidth);
     }
-    colWidths[1 + rondasTotales] = const pw.FixedColumnWidth(puntosWidth);
+    colWidths[2 + rondasTotales] = const pw.FixedColumnWidth(puntosWidth);
 
     final headerStyle = pw.TextStyle(
       font: fontBold,
@@ -360,6 +354,7 @@ class ReporteResultadosPdf {
         pw.TableRow(
           decoration: pw.BoxDecoration(color: _kVino),
           children: [
+            _headerCell('#', headerStyle),
             _headerCell('Partido', headerStyle, align: pw.Alignment.centerLeft),
             for (var r = 1; r <= rondasTotales; r++)
               _headerCell('RONDA $r', headerStyle),
@@ -371,6 +366,17 @@ class ReporteResultadosPdf {
           pw.TableRow(
             decoration: i.isOdd ? pw.BoxDecoration(color: _kGris) : null,
             children: [
+              // Columna # (número de fila)
+              _cellContainer(
+                pw.Text(
+                  '${i + 1}',
+                  style: pw.TextStyle(
+                    font: fontBold,
+                    fontSize: 9,
+                    color: _kNegro,
+                  ),
+                ),
+              ),
               // Columna Partido
               _cellContainer(
                 pw.Text(
@@ -383,9 +389,7 @@ class ReporteResultadosPdf {
               for (var r = 1; r <= rondasTotales; r++)
                 _buildCeldaRonda(filas[i], r, fontBold, fontRegular, fontLight),
               // Columna Puntos
-              _cellContainer(
-                pw.Text('${filas[i].puntos}', style: puntosStyle),
-              ),
+              _cellContainer(pw.Text('${filas[i].puntos}', style: puntosStyle)),
             ],
           ),
       ],
@@ -406,17 +410,16 @@ class ReporteResultadosPdf {
     // Sin pelea en esta ronda
     if (peleas == null || peleas.isEmpty) {
       return _cellContainer(
-        pw.Text(
-          '',
-          style: pw.TextStyle(fontSize: 8, color: _kGrisTexto),
-        ),
+        pw.Text('', style: pw.TextStyle(fontSize: 8, color: _kGrisTexto)),
       );
     }
 
     final widgets = <pw.Widget>[];
     for (var idx = 0; idx < peleas.length; idx++) {
       if (idx > 0) widgets.add(pw.SizedBox(height: 2));
-      widgets.add(_buildPeleaWidget(peleas[idx], fontBold, fontRegular, fontLight));
+      widgets.add(
+        _buildPeleaWidget(peleas[idx], fontBold, fontRegular, fontLight),
+      );
     }
 
     return _cellContainer(

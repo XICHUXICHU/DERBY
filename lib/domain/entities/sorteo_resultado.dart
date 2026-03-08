@@ -80,8 +80,7 @@ class PartidoResultado {
   });
 
   @override
-  String toString() =>
-      'Partido $nombrePartido (fila $fila): ${rondas.length} rondas';
+  String toString() => 'Partido $nombrePartido (fila $fila): ${rondas.length} rondas';
 }
 
 /// Resultado completo del sorteo (todas las rondas).

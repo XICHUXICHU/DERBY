@@ -48,7 +48,7 @@ class Derby {
 
   @override
   String toString() =>
-      'Derby(id=$id, nombre=$nombre, ronda=${rondaActual}/$rondasTotales, '
+      'Derby(id=$id, nombre=$nombre, ronda=$rondaActual/$rondasTotales, '
       'partidos=${partidos.length}, activos=${partidosActivos.length})';
 }
 

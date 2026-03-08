@@ -4,15 +4,17 @@ import 'enfrentamiento.dart';
 /// Contiene N/2 enfrentamientos (donde N = partidos activos).
 ///
 /// Si hay número impar de partidos activos:
-/// - Rondas 1-2 (P.L.): un partido pelea **dos veces** con 2 gallos
-///   distintos contra 2 rivales diferentes (doble pelea).
-/// - Rondas 3+ con impar post-eliminación: un partido **comodín**
-///   registrado por el usuario completa los enfrentamientos.
-/// - Ronda base: si hay impar, el sobrante no pelea (sin puntos gratis).
+/// - Primeras 2 rondas: **un solo** partido pelea dos veces con
+///   2 gallos distintos contra 2 rivales diferentes (doble pelea).
+///   Máximo 1 partido doble por ronda.
+/// - Rondas posteriores con impar post-eliminación: un partido
+///   **comodín** registrado por el usuario completa los enfrentamientos.
+/// - Si no hay comodín, sobrante no pelea (sin puntos gratis).
 class Ronda {
-  final int numero; // 1..4
+  final int numero; // 1..rondasTotales
   final List<Enfrentamiento> enfrentamientos;
-  final bool esRondaBase; // true si es ronda 4 (gallos base)
+  final bool
+  esRondaBase; // Deprecated: siempre false. Se mantiene por compatibilidad.
   final DateTime? fechaCreacion;
 
   /// IDs de partidos que recibieron bye (descanso) en esta ronda.
@@ -20,8 +22,9 @@ class Ronda {
   final List<int> partidosBye;
 
   /// IDs de partidos que pelean **dos veces** en esta ronda.
-  /// Aplicable solo en rondas 1-2 (P.L.) con número impar de activos.
-  /// El partido usa 2 gallos P.L. distintos en 2 enfrentamientos.
+  /// Máximo 1 partido por ronda. Aplicable en las primeras rondas P.L.
+  /// con número impar de activos. El partido usa 2 gallos P.L. distintos
+  /// en 2 enfrentamientos contra 2 rivales diferentes.
   final List<int> partidosDobles;
 
   const Ronda({

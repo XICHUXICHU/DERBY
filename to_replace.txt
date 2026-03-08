@@ -1,0 +1,8 @@
+          // Agregar gallos
+          for (int g = 0; g < anillos.length && g < pesos.length; g++) {
+            // El primero puede ser base u otro.
+            // Para replicar tu prueba, haremos esBase = false por defecto y si es el cuarto gallo etc.
+            // Asignamos todo libre y que el motor decida o el que genere el peso base lo asigne.
+            await galloRepository.crear(
+              partidoId: pid,
+              anillo: anillos[g],

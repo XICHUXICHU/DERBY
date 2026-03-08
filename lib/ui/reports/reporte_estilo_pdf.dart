@@ -307,19 +307,22 @@ class ReporteEstiloPdf {
       color: _kNegro,
     );
 
-    // Anchos: Partido (160), Rondas repartidas, Puntos (50)
+    // Anchos: # (25), Partido (150), Rondas repartidas, Puntos (50)
     // Landscape letter: ~730pt usables
-    const partidoWidth = 160.0;
+    const filaWidth = 25.0;
+    const partidoWidth = 150.0;
     const puntosWidth = 50.0;
-    final rondaWidth = (730.0 - partidoWidth - puntosWidth) / nRondas;
+    final rondaWidth =
+        (730.0 - filaWidth - partidoWidth - puntosWidth) / nRondas;
 
     final colWidths = <int, pw.TableColumnWidth>{
-      0: const pw.FixedColumnWidth(partidoWidth),
+      0: const pw.FixedColumnWidth(filaWidth),
+      1: const pw.FixedColumnWidth(partidoWidth),
     };
     for (var r = 0; r < nRondas; r++) {
-      colWidths[1 + r] = pw.FixedColumnWidth(rondaWidth);
+      colWidths[2 + r] = pw.FixedColumnWidth(rondaWidth);
     }
-    colWidths[1 + nRondas] = const pw.FixedColumnWidth(puntosWidth);
+    colWidths[2 + nRondas] = const pw.FixedColumnWidth(puntosWidth);
 
     return pw.Table(
       border: pw.TableBorder.all(
@@ -332,6 +335,7 @@ class ReporteEstiloPdf {
         pw.TableRow(
           decoration: pw.BoxDecoration(color: _kVino),
           children: [
+            _headerCell('#', headerStyle),
             _headerCell('Partido', headerStyle, align: pw.Alignment.centerLeft),
             for (var r = 1; r <= nRondas; r++)
               _headerCell('RONDA $r', headerStyle),
@@ -343,6 +347,17 @@ class ReporteEstiloPdf {
           pw.TableRow(
             decoration: i.isOdd ? pw.BoxDecoration(color: _kGris) : null,
             children: [
+              // Columna # (número de fila)
+              _cellContainer(
+                pw.Text(
+                  '${sorteo.partidos[i].fila}',
+                  style: pw.TextStyle(
+                    font: fontBold,
+                    fontSize: 8,
+                    color: _kNegro,
+                  ),
+                ),
+              ),
               // Columna Partido (nombre)
               _cellContainer(
                 pw.Text(

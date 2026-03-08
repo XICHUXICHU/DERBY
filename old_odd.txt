@@ -1,0 +1,105 @@
+        detalle: 'Menos de 2 partidos activos.',
+      );
+    }
+
+    // 3c. Manejo de número impar de partidos activos.
+    //
+    // Regla del juez (NO BYE):
+    // - Rondas 1-2 (P.L.): un partido pelea DOBLE (2 gallos distintos
+    //   contra 2 rivales). Ambas peleas cuentan normal.
+    // - Rondas 3+ (P.L.) con impar post-eliminación: se requiere un
+    //   partido COMODÍN registrado por el usuario (o doble pelea si no hay comodín).
+    // - Ronda base: si hay impar, el sobrante no pelea (sin victorias gratis).
+    final bool esImpar = partidosActivos.length % 2 != 0;
+    final bool esRondaDoblePelea = true; // Todas las rondas permiten doble pelea como primer intento o fallback
+
+    print(
+      '  esImpar=$esImpar, esRondaBase=$esRondaBase, esRondaDoblePelea=$esRondaDoblePelea',
+    );
+
+    if (esImpar && !esRondaBase) {
+      // ── CASO A: Doble pelea (rondas 1-2) ──────────────────────
+      if (esRondaDoblePelea) {
+        print('  → CASO A: Intentando doble pelea (ronda $rondaNumero)');
+        return _intentarDoblePelea(
+          gallos: gallos,
+          compadres: compadres,
+          partidosActivos: partidosActivos,
+          gallosYaPeleados: gallosYaPeleados,
+          enfrentamientosPrevios: enfrentamientosPrevios,
+          rondaNumero: rondaNumero,
+          rondasPrevias: rondasPrevias,
+        );
+      }
+
+      // ── CASO B: Comodín (rondas 3+, impar post-eliminación) ───
+      // Regla del juez: se requiere un partido COMODÍN. NO BYE.
+      print('  → CASO B: Buscando comodín (ronda $rondaNumero)');
+      final comodinActivo = partidos.firstWhere(
+        (p) => p.esComodin && p.estado == EstadoPartido.activo && !p.eliminado,
+        orElse: () => const Partido(id: -1, nombre: ''),
+      );
+      print(
+        '  Comodín encontrado: ${comodinActivo.id != -1 ? comodinActivo.nombre : "NINGUNO"}',
+      );
+
+      if (comodinActivo.id != -1 &&
+          !partidosActivos.contains(comodinActivo.id)) {
+        // Agregar comodín al set de activos para emparejar
+        final activosConComodin = Set<int>.of(partidosActivos)
+          ..add(comodinActivo.id);
+
+        return _intentarMatching(
+          gallos: gallos,
+          compadres: compadres,
+          partidosActivos: activosConComodin,
+          gallosYaPeleados: gallosYaPeleados,
+          enfrentamientosPrevios: enfrentamientosPrevios,
+          rondaNumero: rondaNumero,
+          esRondaBase: false,
+          partidosBye: const [],
+          partidosDobles: const [],
+        );
+      }
+
+      // ── CASO C: Sin comodín → intentar doble pelea (si hay candidatos) ─
+      print('  → CASO C: Sin comodín, intentando doble pelea en ronda $rondaNumero');
+      try {
+        return _intentarDoblePelea(
+          gallos: gallos,
+          compadres: compadres,
+          partidosActivos: partidosActivos,
+          gallosYaPeleados: gallosYaPeleados,
+          enfrentamientosPrevios: enfrentamientosPrevios,
+          rondaNumero: rondaNumero,
+          rondasPrevias: rondasPrevias,
+        );
+      } on DerbyException catch (e) {
+        print('  Doble pelea en R$rondaNumero falló: $e');
+      }
+
+      // ── CASO D: Un partido no participa (sin victoria automática) ──
+      // Similar a ronda base: matching con los partidos par, el sobrante
+      // simplemente no pelea (NO recibe puntos gratis — no es BYE).
+      print('  → CASO D: Un partido no participa (sin victoria, sin BYE)');
+      return _intentarMatching(
+        gallos: gallos,
+        compadres: compadres,
+        partidosActivos: partidosActivos,
+        gallosYaPeleados: gallosYaPeleados,
+        enfrentamientosPrevios: enfrentamientosPrevios,
+        rondaNumero: rondaNumero,
+        esRondaBase: false,
+        partidosBye: const [],
+        partidosDobles: const [],
+        permitirSobrante: true,
+      );
+    }
+
+    // Número par: matching directo sin bye ni dobles.
+    return _intentarMatching(
+      gallos: gallos,
+      compadres: compadres,
+      partidosActivos: partidosActivos,
+      gallosYaPeleados: gallosYaPeleados,
+      enfrentamientosPrevios: enfrentamientosPrevios,
