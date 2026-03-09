@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Derby Pro | Admin Panel</title>
+    <style>
+        :root {
+            --primary: #8B0000;
+            --bg: #111827;
+            --surface: #1F2937;
+            --text: #F3F4F6;
+            --border: #374151;
+            --green: #10B981;
+        }
+        * { box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container {
+            background-color: var(--surface);
+            padding: 32px;
+            border-radius: 12px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+            width: 100%;
+            max-width: 460px;
+        }
+        h1 { margin: 0 0 8px 0; font-size: 22px; color: #fff; text-align: center; }
+        h2 { margin: 0 0 20px 0; font-size: 15px; color: #9CA3AF; font-weight: normal; text-align: center; }
+        .hidden { display: none !important; }
+
+        label { display: block; font-size: 13px; color: #9CA3AF; margin-bottom: 4px; margin-top: 12px; }
+        input, textarea {
+            width: 100%;
+            padding: 10px 12px;
+            border-radius: 6px;
+            border: 1px solid var(--border);
+            background: #111827;
+            color: white;
+            font-size: 15px;
+        }
+        textarea { resize: vertical; min-height: 60px; font-family: inherit; }
+        input:focus, textarea:focus { outline: none; border-color: var(--primary); }
+
+        button {
+            width: 100%;
+            padding: 12px;
+            border: none;
+            border-radius: 6px;
+            background-color: var(--primary);
+            color: white;
+            font-weight: bold;
+            font-size: 15px;
+            cursor: pointer;
+            transition: opacity 0.2s;
+            margin-bottom: 8px;
+        }
+        button:hover { opacity: 0.85; }
+        button:disabled { opacity: 0.4; cursor: not-allowed; }
+        .btn-outline { background-color: transparent; border: 1px solid var(--primary); }
+        .btn-outline:hover { background-color: rgba(139,0,0,0.1); }
+        .btn-sm { padding: 8px; font-size: 13px; }
+        .btn-gray { border-color: #4B5563; }
+
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
+
+        .duration-btn { position: relative; }
+        .duration-btn.selected { background-color: #991b1b; box-shadow: 0 0 0 2px #EF4444; }
+
+        .result-box {
+            margin-top: 20px;
+            padding: 16px;
+            background: rgba(16, 185, 129, 0.08);
+            border: 1px solid var(--green);
+            border-radius: 8px;
+            text-align: center;
+        }
+        .code-display {
+            font-size: 17px;
+            letter-spacing: 1.5px;
+            font-family: 'SF Mono', 'Fira Code', monospace;
+            margin: 8px 0;
+            user-select: all;
+            color: var(--green);
+            word-break: break-all;
+        }
+        .small-text { font-size: 12px; color: #9CA3AF; }
+
+        #error-msg { color: #EF4444; margin-bottom: 12px; font-size: 14px; text-align: center; }
+        #form-error { color: #EF4444; font-size: 13px; margin-top: 8px; text-align: center; }
+
+        .divider { border-top: 1px solid var(--border); margin: 20px 0; }
+
+        .step-indicator {
+            display: flex; gap: 8px; justify-content: center; margin-bottom: 20px;
+        }
+        .step {
+            width: 32px; height: 32px; border-radius: 50%; display: flex;
+            align-items: center; justify-content: center; font-size: 14px; font-weight: bold;
+            background: var(--border); color: #6B7280;
+        }
+        .step.active { background: var(--primary); color: white; }
+        .step.done { background: var(--green); color: white; }
+
+        .client-badge {
+            display: inline-block; background: rgba(139,0,0,0.2); border: 1px solid var(--primary);
+            border-radius: 20px; padding: 4px 12px; font-size: 12px; margin-bottom: 12px;
+        }
+    </style>
+</head>
+<body>
+    <!-- ============ LOGIN ============ -->
+    <div id="login-screen" class="container">
+        <div style="text-align:center; margin-bottom: 16px;">
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#8B0000" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+        </div>
+        <h1>Derby Pro Admin</h1>
+        <h2>Panel de Licencias</h2>
+        <div id="error-msg"></div>
+        <input type="email" id="email" placeholder="Correo del administrador" />
+        <input type="password" id="password" placeholder="Contraseña" style="margin-top:4px" />
+        <button id="btn-login" style="margin-top:16px">Ingresar</button>
+    </div>
+
+    <!-- ============ DASHBOARD ============ -->
+    <div id="dashboard-screen" class="container hidden">
+
+        <!-- STEP INDICATOR -->
+        <div class="step-indicator">
+            <div class="step active" id="step1-dot">1</div>
+            <div class="step" id="step2-dot">2</div>
+            <div class="step" id="step3-dot">3</div>
+        </div>
+
+        <!-- ====== PASO 1: Duración ====== -->
+        <div id="step1">
+            <h1>Paso 1: Duración</h1>
+            <h2>Selecciona el tiempo de la licencia</h2>
+            <div class="grid-2">
+                <button class="duration-btn" id="btn-dur-30">1 Mes</button>
+                <button class="duration-btn" id="btn-dur-180">6 Meses</button>
+            </div>
+            <div class="grid-2">
+                <button class="duration-btn" id="btn-dur-365">1 Año</button>
+                <button class="duration-btn btn-outline" id="btn-dur-3650">De por vida</button>
+            </div>
+            <button id="btn-next1" class="btn-sm" style="margin-top:16px" disabled >Siguiente →</button>
+        </div>
+
+        <!-- ====== PASO 2: Datos del Cliente ====== -->
+        <div id="step2" class="hidden">
+            <h1>Paso 2: Cliente</h1>
+            <h2>Datos de quien recibe la licencia</h2>
+
+            <label for="client-name">Nombre del cliente *</label>
+            <input type="text" id="client-name" placeholder="Ej: Juan Pérez" />
+
+            <label for="client-phone">Teléfono / WhatsApp</label>
+            <input type="tel" id="client-phone" placeholder="Ej: +52 33 1234 5678" />
+
+            <label for="client-email2">Correo electrónico</label>
+            <input type="email" id="client-email2" placeholder="Ej: juan@correo.com" />
+
+            <label for="client-ranch">Rancho / Gallera</label>
+            <input type="text" id="client-ranch" placeholder="Ej: Rancho El Milagro" />
+
+            <label for="client-notes">Notas adicionales</label>
+            <textarea id="client-notes" placeholder="Observaciones, acuerdos de pago, etc."></textarea>
+
+            <div id="form-error"></div>
+
+            <div class="grid-2" style="margin-top:16px">
+                <button class="btn-outline btn-sm btn-gray" id="btn-atras-1">← Atrás</button>
+                <button class="btn-sm" id="btn-goto-3">Generar Licencia →</button>
+            </div>
+        </div>
+
+        <!-- ====== PASO 3: Resultado ====== -->
+        <div id="step3" class="hidden">
+            <h1>Paso 3: Licencia Lista</h1>
+            <div id="result-loading" style="text-align:center; padding: 20px;">
+                <div style="color:#9CA3AF">Generando licencia segura...</div>
+            </div>
+            <div id="result-box" class="result-box hidden">
+                <div class="client-badge" id="result-client-name"></div>
+                <div class="small-text">Código de Licencia:</div>
+                <div id="code-text" class="code-display"></div>
+                <div id="expiry-text" class="small-text"></div>
+                <div style="margin-top:12px">
+                    <button class="btn-sm" id="btn-copy-wa" style="background:#25D366">📋 Copiar mensaje WhatsApp</button>
+                </div>
+            </div>
+            <button class="btn-outline btn-sm btn-gray" style="margin-top:16px" id="btn-nueva-lic">+ Generar otra licencia</button>
+        </div>
+
+        <div class="divider"></div>
+        <button id="btn-cerrar-ses" class="btn-outline btn-sm btn-gray" style="border-color:#374151">Cerrar Sesión</button>
+    </div>
+
+    <script type="module" src="./app.js"></script>
+</body>
+</html>

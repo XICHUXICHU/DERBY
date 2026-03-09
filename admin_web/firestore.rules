@@ -1,0 +1,23 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /Licenses/{codigo} {
+      // 1. Cualquier app puede LEER para verificar si la licencia existe/expiró
+      allow read: if true;
+
+      // 2. Solo la app puede registrar hardware_id, y SOLO si:
+      //    - El campo hardware_id actual está vacío (licencia virgen)
+      //    - El ÚNICO campo que se modifica es hardware_id
+      //    - El nuevo hardware_id NO está vacío (no pueden borrarlo)
+      allow update: if resource.data.hardware_id == ""
+                    && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['hardware_id'])
+                    && request.resource.data.hardware_id != "";
+
+      // 3. Solo usuarios autenticados (tú desde el panel admin) pueden crear licencias
+      allow create: if request.auth != null;
+
+      // 4. Nadie puede borrar licencias desde la API (solo desde Firebase Console)
+      allow delete: if false;
+    }
+  }
+}
