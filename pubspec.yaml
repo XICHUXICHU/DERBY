@@ -42,6 +42,10 @@ dependencies:
   pdf: ^3.11.3
   printing: ^5.14.2
   file_picker: ^8.1.6
+  flutter_secure_storage: ^10.0.0
+  device_info_plus: ^12.3.0
+  crypto: ^3.0.7
+  dio: ^5.9.2
 
 dev_dependencies:
   flutter_test:
@@ -101,5 +105,6 @@ msix_config:
   msix_version: 1.0.0.0
   logo_path: windows/runner/resources/app_icon.ico
   capabilities: internetClient
+  rescapabilities: runFullTrust
   output_name: DerbyManager
   install_certificate: false
