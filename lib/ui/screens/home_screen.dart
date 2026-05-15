@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import '../../main.dart' show derbyRepository;
 import '../../data/database/app_database.dart';
+import '../../core/security/secure_license_storage.dart';
+import '../../core/security/license_manager.dart';
 import 'derby_grid_screen.dart';
 import 'derby_config_form_screen.dart';
+import 'activation_screen.dart';
 
 /// Pantalla principal: lista de derbys.
 class HomeScreen extends StatefulWidget {
@@ -16,10 +19,89 @@ class _HomeScreenState extends State<HomeScreen> {
   List<Derby> _derbys = [];
   bool _cargando = true;
 
+  String? _licenseCode;
+  DateTime? _expiryDate;
+  int _daysRemaining = 0;
+
   @override
   void initState() {
     super.initState();
     _cargarDerbys();
+    _loadLicenseInfo();
+  }
+
+  Future<void> _loadLicenseInfo() async {
+    final code = await SecureLicenseStorage.getLicenseCode();
+    final expiry = await SecureLicenseStorage.getExpiryDate();
+    if (mounted && expiry != null) {
+      setState(() {
+        _licenseCode = code;
+        _expiryDate = expiry;
+        _daysRemaining = expiry.difference(DateTime.now()).inDays;
+      });
+    }
+  }
+
+  void _showLicenseInfo() {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.verified_user, color: Colors.green),
+            SizedBox(width: 8),
+            Text('Información de Licencia'),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Clave: ${_licenseCode ?? 'Desconocida'}', style: const TextStyle(fontWeight: FontWeight.bold)),
+            const SizedBox(height: 12),
+            Text('Válida hasta: ${_expiryDate != null ? "${_expiryDate!.day}/${_expiryDate!.month}/${_expiryDate!.year}" : "N/A"}'),
+            const SizedBox(height: 8),
+            Text(
+              'Tiempo restante: $_daysRemaining días',
+              style: TextStyle(
+                color: _daysRemaining > 30 ? Colors.green : Colors.orange,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            child: const Text('Cerrar'),
+            onPressed: () => Navigator.pop(ctx),
+          ),
+          TextButton(
+            child: const Text('Desvincular Licencia', style: TextStyle(color: Colors.red)),
+            onPressed: () async {
+              Navigator.pop(ctx);
+              final confirm = await showDialog<bool>(
+                context: context,
+                builder: (c) => AlertDialog(
+                  title: const Text('¿Desvincular Licencia?'),
+                  content: const Text('Esto cerrará la aplicación y requerirá una nueva activación de licencia para volver a entrar. ¿Deseas continuar?'),
+                  actions: [
+                    TextButton(child: const Text('Cancelar'), onPressed: () => Navigator.pop(c, false)),
+                    TextButton(child: const Text('Sí, desvincular', style: TextStyle(color: Colors.red)), onPressed: () => Navigator.pop(c, true)),
+                  ],
+                ),
+              );
+              if (confirm == true) {
+                await LicenseManager.deactivate();
+                if (!mounted) return;
+                Navigator.of(context).pushReplacement(
+                  MaterialPageRoute(builder: (_) => const ActivationScreen()),
+                );
+              }
+            }
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _cargarDerbys() async {
@@ -106,6 +188,21 @@ class _HomeScreenState extends State<HomeScreen> {
       appBar: AppBar(
         title: const Text('Derby Manager'),
         centerTitle: true,
+        actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: 16.0),
+            child: ActionChip(
+              avatar: const Icon(Icons.security, size: 16, color: Colors.greenAccent),
+              label: Text(
+                _daysRemaining > 0 ? '$_daysRemaining días' : 'Evaluando...',
+                style: const TextStyle(fontSize: 12),
+              ),
+              onPressed: _showLicenseInfo,
+              backgroundColor: Colors.transparent,
+              side: BorderSide(color: Colors.green.withOpacity(0.5)),
+            ),
+          )
+        ],
       ),
       body: _cargando
           ? const Center(child: CircularProgressIndicator())

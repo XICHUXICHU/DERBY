@@ -917,6 +917,7 @@ class DerbyEngine {
         throw RondaIncompletaException(
           partidosSinEmparejar: resultado.partidosSinEmparejar.length,
           idsNoEmparejados: resultado.partidosSinEmparejar,
+          detalle: 'Los partidos con ID ${resultado.partidosSinEmparejar.join(', ')} no encontraron oponente que cumpla las reglas.',
         );
       }
       // Log de sobrantes para análisis

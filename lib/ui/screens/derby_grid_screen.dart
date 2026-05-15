@@ -981,7 +981,10 @@ class _DerbyGridScreenState extends State<DerbyGridScreen> {
     } on domain.DerbyException catch (e) {
       print('❌ DerbyException: ${e.mensaje}');
       if (!mounted) return;
-      _mostrarErroresSorteo([e.mensaje]);
+      _mostrarErroresSorteo([
+        e.mensaje,
+        if (e.detalle != null && e.detalle!.isNotEmpty) 'Detalle: ${e.detalle}'
+      ]);
     } catch (e, st) {
       print('❌ Error inesperado: $e');
       print('Stack trace: $st');

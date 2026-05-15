@@ -66,7 +66,8 @@ class RondaIncompletaException extends DerbyException {
   const RondaIncompletaException({
     required this.partidosSinEmparejar,
     required this.idsNoEmparejados,
-  }) : super('$partidosSinEmparejar partidos no pudieron emparejarse');
+    String? detalle,
+  }) : super('$partidosSinEmparejar partidos no pudieron emparejarse', detalle);
 }
 
 /// Validación de datos de entrada.

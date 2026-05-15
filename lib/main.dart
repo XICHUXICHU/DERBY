@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'data/database/app_database.dart';
 import 'data/repositories/repositories.dart';
-import 'ui/screens/home_screen.dart';
+import 'ui/screens/splash_screen.dart';
 
 /// Instancia global de la base de datos.
 /// Se inicializa una sola vez al arrancar la app.
@@ -43,7 +43,7 @@ class Derby2App extends StatelessWidget {
           margin: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         ),
       ),
-      home: const HomeScreen(),
+      home: const SplashScreen(),
     );
   }
 }
