@@ -1,3 +1,4 @@
+import 'derby_peleas_reassign.dart';
 import 'dart:io';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
@@ -465,6 +466,10 @@ class _DerbyGridScreenState extends State<DerbyGridScreen> {
             nombre: r.partido.nombre,
             responsable: r.partido.responsable,
             telefono: r.partido.telefono,
+            estado: domain.EstadoPartido.values.firstWhere(
+              (e) => e.name == r.partido.estado,
+              orElse: () => domain.EstadoPartido.activo,
+            ),
             puntos: r.partido.puntos,
             eliminado: r.partido.eliminado,
             depositoPagado: r.partido.depositoPagado,
@@ -675,6 +680,10 @@ class _DerbyGridScreenState extends State<DerbyGridScreen> {
             nombre: p.nombre,
             responsable: p.responsable,
             telefono: p.telefono,
+            estado: domain.EstadoPartido.values.firstWhere(
+              (e) => e.name == p.estado,
+              orElse: () => domain.EstadoPartido.activo,
+            ),
             puntos: p.puntos,
             eliminado: p.eliminado,
             depositoPagado: p.depositoPagado,
@@ -977,13 +986,22 @@ class _DerbyGridScreenState extends State<DerbyGridScreen> {
       );
 
       if (!mounted) return;
-      _mostrarResultadoSorteo(resultado, rondas);
+      _mostrarResultadoSorteo(
+        resultado: resultado,
+        rondas: rondas,
+        domPartidos: domPartidos,
+        domGallos: domGallos,
+        domCompadres: domCompadres,
+        config: config,
+        engine: engine,
+        nombreDerby: derbyData.nombre,
+      );
     } on domain.DerbyException catch (e) {
       print('❌ DerbyException: ${e.mensaje}');
       if (!mounted) return;
       _mostrarErroresSorteo([
         e.mensaje,
-        if (e.detalle != null && e.detalle!.isNotEmpty) 'Detalle: ${e.detalle}'
+        if (e.detalle != null && e.detalle!.isNotEmpty) 'Detalle: ${e.detalle}',
       ]);
     } catch (e, st) {
       print('❌ Error inesperado: $e');
@@ -1080,10 +1098,16 @@ class _DerbyGridScreenState extends State<DerbyGridScreen> {
     );
   }
 
-  void _mostrarResultadoSorteo(
-    domain.SorteoResultado resultado,
-    List<domain.Ronda> rondas,
-  ) {
+  void _mostrarResultadoSorteo({
+    required domain.SorteoResultado resultado,
+    required List<domain.Ronda> rondas,
+    required List<domain.Partido> domPartidos,
+    required List<domain.Gallo> domGallos,
+    required List<domain.Compadres> domCompadres,
+    required DerbyConfig config,
+    required DerbyEngine engine,
+    required String nombreDerby,
+  }) {
     showDialog(
       context: context,
       builder: (ctx) {
@@ -1235,8 +1259,47 @@ class _DerbyGridScreenState extends State<DerbyGridScreen> {
               child: const Text('Cerrar'),
             ),
             OutlinedButton.icon(
+              icon: const Icon(Icons.edit_note, size: 18),
+              label: const Text('Edición manual (Arrastrar)'),
+              onPressed: () async {
+                Navigator.pop(ctx);
+                final nuevasRondas = await Navigator.push<List<domain.Ronda>>(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => DerbyPeleasReassignScreen(
+                      rondasOriginales: rondas,
+                      partidos: domPartidos,
+                      gallos: domGallos,
+                      compadres: domCompadres,
+                      diferenciaMaxPeso: config.diferenciaMaxPeso,
+                    ),
+                  ),
+                );
+
+                if (nuevasRondas != null && mounted) {
+                  final sorteoUseCase = GenerarSorteo(engine);
+                  final nuevoResultado = sorteoUseCase.construirResultadoVisual(
+                    nombreDerby: nombreDerby,
+                    partidos: domPartidos,
+                    rondas: nuevasRondas,
+                    compadres: domCompadres,
+                  );
+                  _mostrarResultadoSorteo(
+                    resultado: nuevoResultado,
+                    rondas: nuevasRondas,
+                    domPartidos: domPartidos,
+                    domGallos: domGallos,
+                    domCompadres: domCompadres,
+                    config: config,
+                    engine: engine,
+                    nombreDerby: nombreDerby,
+                  );
+                }
+              },
+            ),
+            OutlinedButton.icon(
               icon: const Icon(Icons.visibility, size: 18),
-              label: const Text('Vista previa'),
+              label: const Text('Vista previa PDF'),
               onPressed: () {
                 Navigator.pop(ctx);
                 ReporteEstiloPdf(sorteo: resultado).vistaPrevia(context);

@@ -25,8 +25,7 @@ class _DerbyDetailScreenState extends State<DerbyDetailScreen> {
 
   Future<void> _cargarPartidos() async {
     setState(() => _cargando = true);
-    final partidos =
-        await partidoRepository.listarPorDerby(widget.derby.id);
+    final partidos = await partidoRepository.listarPorDerby(widget.derby.id);
     setState(() {
       _partidos = partidos;
       _cargando = false;
@@ -66,7 +65,8 @@ class _DerbyDetailScreenState extends State<DerbyDetailScreen> {
       builder: (ctx) => AlertDialog(
         title: const Text('Eliminar partido'),
         content: Text(
-            '¿Eliminar "${partido.nombre}" y todos sus gallos? Esta acción no se puede deshacer.'),
+          '¿Eliminar "${partido.nombre}" y todos sus gallos? Esta acción no se puede deshacer.',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
@@ -93,42 +93,41 @@ class _DerbyDetailScreenState extends State<DerbyDetailScreen> {
     final cs = Theme.of(context).colorScheme;
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(widget.derby.nombre),
-        centerTitle: true,
-      ),
+      appBar: AppBar(title: Text(widget.derby.nombre), centerTitle: true),
       body: _cargando
           ? const Center(child: CircularProgressIndicator())
           : _partidos.isEmpty
-              ? Center(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.group_add,
-                          size: 80,
-                          color: cs.primary.withValues(alpha: 0.5)),
-                      const SizedBox(height: 16),
-                      Text(
-                        'No hay partidos inscritos',
-                        style: Theme.of(context).textTheme.titleLarge,
-                      ),
-                      const SizedBox(height: 8),
-                      const Text('Agrega partidos para comenzar el derby'),
-                    ],
+          ? Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.group_add,
+                    size: 80,
+                    color: cs.primary.withValues(alpha: 0.5),
                   ),
-                )
-              : ListView.builder(
-                  itemCount: _partidos.length,
-                  padding: const EdgeInsets.symmetric(vertical: 8),
-                  itemBuilder: (ctx, i) {
-                    final p = _partidos[i];
-                    return _PartidoCard(
-                      partido: p,
-                      onTap: () => _editarPartido(p),
-                      onDelete: () => _eliminarPartido(p),
-                    );
-                  },
-                ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'No hay partidos inscritos',
+                    style: Theme.of(context).textTheme.titleLarge,
+                  ),
+                  const SizedBox(height: 8),
+                  const Text('Agrega partidos para comenzar el derby'),
+                ],
+              ),
+            )
+          : ListView.builder(
+              itemCount: _partidos.length,
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              itemBuilder: (ctx, i) {
+                final p = _partidos[i];
+                return _PartidoCard(
+                  partido: p,
+                  onTap: () => _editarPartido(p),
+                  onDelete: () => _eliminarPartido(p),
+                );
+              },
+            ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _agregarPartido,
         icon: const Icon(Icons.add),
@@ -140,9 +139,7 @@ class _DerbyDetailScreenState extends State<DerbyDetailScreen> {
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
                 color: cs.surfaceContainerHighest,
-                border: Border(
-                  top: BorderSide(color: cs.outlineVariant),
-                ),
+                border: Border(top: BorderSide(color: cs.outlineVariant)),
               ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -155,9 +152,9 @@ class _DerbyDetailScreenState extends State<DerbyDetailScreen> {
                     'Depósitos pagados: '
                     '${_partidos.where((p) => p.depositoPagado).length}'
                     '/${_partidos.length}',
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          color: cs.primary,
-                        ),
+                    style: Theme.of(
+                      context,
+                    ).textTheme.titleMedium?.copyWith(color: cs.primary),
                   ),
                 ],
               ),
@@ -200,8 +197,7 @@ class _PartidoCardState extends State<_PartidoCard> {
   }
 
   Future<void> _cargarGallos() async {
-    final gallos =
-        await galloRepository.listarPorPartido(widget.partido.id);
+    final gallos = await galloRepository.listarPorPartido(widget.partido.id);
     if (mounted) setState(() => _gallos = gallos);
   }
 
@@ -229,26 +225,34 @@ class _PartidoCardState extends State<_PartidoCard> {
                     child: Text(
                       p.nombre,
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.bold,
-                          ),
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ),
                   if (p.depositoPagado)
                     Chip(
-                      avatar: Icon(Icons.check_circle,
-                          size: 16, color: cs.primary),
+                      avatar: Icon(
+                        Icons.check_circle,
+                        size: 16,
+                        color: cs.primary,
+                      ),
                       label: Text(
                         '\$${p.depositoCantidad.toStringAsFixed(0)}',
                         style: TextStyle(fontSize: 12, color: cs.primary),
                       ),
-                      side: BorderSide(color: cs.primary.withValues(alpha: 0.3)),
+                      side: BorderSide(
+                        color: cs.primary.withValues(alpha: 0.3),
+                      ),
                       padding: EdgeInsets.zero,
                       materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                     )
                   else
                     Chip(
-                      avatar:
-                          Icon(Icons.warning_amber, size: 16, color: cs.error),
+                      avatar: Icon(
+                        Icons.warning_amber,
+                        size: 16,
+                        color: cs.error,
+                      ),
                       label: Text(
                         'Sin pagar',
                         style: TextStyle(fontSize: 12, color: cs.error),
@@ -349,7 +353,9 @@ class _GalloChip extends StatelessWidget {
             fontSize: 13,
             color: tiene
                 ? Theme.of(context).colorScheme.onSurface
-                : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.4),
+                : Theme.of(
+                    context,
+                  ).colorScheme.onSurface.withValues(alpha: 0.4),
           ),
         ),
       ],

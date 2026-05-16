@@ -29,7 +29,8 @@ class _SplashScreenState extends State<SplashScreen> {
       // enviamos al usuario a la pantalla de activación en lugar de quedarnos colgados.
       result = LicenseValidationResult(
         status: LicenseStatus.unregistered,
-        message: 'Error al verificar la licencia: ${e.toString().split('\n').first}',
+        message:
+            'Error al verificar la licencia: ${e.toString().split('\n').first}',
       );
     }
 
@@ -38,21 +39,29 @@ class _SplashScreenState extends State<SplashScreen> {
     if (result.status == LicenseStatus.valid) {
       _navigateToHome();
     } else if (result.status == LicenseStatus.offlineGracePeriod) {
-       ScaffoldMessenger.of(context).showSnackBar(
-           SnackBar(content: Text(result.message ?? 'Validación offline. ${result.daysLeftOffline} días restantes.'), backgroundColor: Colors.orange),
-       );
-       _navigateToHome();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            result.message ??
+                'Validación offline. ${result.daysLeftOffline} días restantes.',
+          ),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      _navigateToHome();
     } else {
-       Navigator.of(context).pushReplacement(
-         MaterialPageRoute(builder: (_) => ActivationScreen(initialError: result)),
-       );
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(
+          builder: (_) => ActivationScreen(initialError: result),
+        ),
+      );
     }
   }
 
   void _navigateToHome() {
-    Navigator.of(context).pushReplacement(
-      MaterialPageRoute(builder: (_) => const HomeScreen()),
-    );
+    Navigator.of(
+      context,
+    ).pushReplacement(MaterialPageRoute(builder: (_) => const HomeScreen()));
   }
 
   @override
@@ -60,21 +69,33 @@ class _SplashScreenState extends State<SplashScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFF1E1E1E),
       body: Center(
-         child: Column(
-           mainAxisSize: MainAxisSize.min,
-           children: const [
-             Icon(Icons.dashboard_customize_rounded, size: 80, color: Colors.redAccent),
-             SizedBox(height: 24),
-             Text(
-               'DERBY PRO',
-               style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold, letterSpacing: 4, color: Colors.white),
-             ),
-             SizedBox(height: 8),
-             Text('Comprobando licencia...', style: TextStyle(color: Colors.grey)),
-             SizedBox(height: 32),
-             CircularProgressIndicator(color: Colors.redAccent),
-           ],
-         )
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: const [
+            Icon(
+              Icons.dashboard_customize_rounded,
+              size: 80,
+              color: Colors.redAccent,
+            ),
+            SizedBox(height: 24),
+            Text(
+              'DERBY PRO',
+              style: TextStyle(
+                fontSize: 32,
+                fontWeight: FontWeight.bold,
+                letterSpacing: 4,
+                color: Colors.white,
+              ),
+            ),
+            SizedBox(height: 8),
+            Text(
+              'Comprobando licencia...',
+              style: TextStyle(color: Colors.grey),
+            ),
+            SizedBox(height: 32),
+            CircularProgressIndicator(color: Colors.redAccent),
+          ],
+        ),
       ),
     );
   }

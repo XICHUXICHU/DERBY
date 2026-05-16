@@ -65,6 +65,16 @@ class PartidoRepository {
     );
   }
 
+  /// Cambiar el estado del partido (Ej. activo, eliminado, descalificado).
+  Future<int> actualizarEstado(int id, domain.EstadoPartido estado) {
+    return (_db.update(_db.partidos)..where((p) => p.id.equals(id))).write(
+      PartidosCompanion(
+        estado: Value(estado.name),
+        eliminado: Value(estado != domain.EstadoPartido.activo),
+      ),
+    );
+  }
+
   /// Actualizar datos del partido.
   Future<int> actualizar({
     required int id,

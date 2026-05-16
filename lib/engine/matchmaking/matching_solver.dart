@@ -141,13 +141,15 @@ class MatchingSolver {
         usaRepeticiones: true,
       );
     }
-
-    throw MatchingImposibleException(
-      rondaNumero: rondaNumero,
-      gallosDisponibles: gallosDisponibles.length,
-      restriccionesActivas: todasAristas.length,
-      detalle: 'No se encontró matching válido ni con repeticiones.',
+    
+    // Devolvemos el resultado con fallos, donde todos no fueron emparejados.
+    return ResultadoMatching(
+        pares: [],
+        sumaTotal: 0.0,
+        partidosSinEmparejar: partidosActivos.toList(),
+        usaRepeticiones: true,
     );
+
   }
 
   /// Resuelve con un conjunto dado de aristas.

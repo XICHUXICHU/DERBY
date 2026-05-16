@@ -724,6 +724,8 @@ class DerbyEngine {
 
     List<ParEmparejado>? mejorSolucion;
     var mejorCosto = double.infinity;
+    List<ParEmparejado>? mejorSolucionParcial;
+    var maxParesParciales = -1;
     var iteraciones = 0;
     const maxIter = 500000;
 
@@ -735,6 +737,13 @@ class DerbyEngine {
       double costo,
     ) {
       iteraciones++;
+
+      // Rastrear la mejor solución parcial siempre
+      if (pares.length > maxParesParciales) {
+        maxParesParciales = pares.length;
+        mejorSolucionParcial = List.of(pares);
+      }
+
       if (iteraciones > maxIter) return;
 
       if (pares.length == totalPares) {
@@ -809,13 +818,38 @@ class DerbyEngine {
       return ResultadoMatching(pares: mejorSolucion!, sumaTotal: sumaReal);
     }
 
-    print('    ❌ _solverDoble: No se encontró matching válido');
-    throw MatchingImposibleException(
-      rondaNumero: rondaNumero,
-      gallosDisponibles: aristas.length,
-      restriccionesActivas: 0,
-      detalle:
-          'No se encontró matching válido con doble pelea para partido $partidoDobleId.',
+    if (mejorSolucionParcial != null && mejorSolucionParcial!.isNotEmpty) {
+      print(
+        '    ⚠️ _solverDoble: Devolviendo mejor solución PARCIAL con ${mejorSolucionParcial!.length} pares.',
+      );
+      final sumaReal = mejorSolucionParcial!.fold(
+        0.0,
+        (sum, p) => sum + p.diferencia,
+      );
+
+      final asig = <int>{};
+      for (final p in mejorSolucionParcial!) {
+        asig.add(p.galloA.partidoId);
+        asig.add(p.galloB.partidoId);
+      }
+      final sinEmparejar = partidosActivos
+          .where((id) => !asig.contains(id))
+          .toList();
+
+      return ResultadoMatching(
+        pares: mejorSolucionParcial!,
+        sumaTotal: sumaReal,
+        partidosSinEmparejar: sinEmparejar,
+      );
+    }
+
+    print(
+      '    ❌ _solverDoble: Cero emparejamientos encontrados, devolviendo ronda vacía.',
+    );
+    return ResultadoMatching(
+      pares: [],
+      sumaTotal: 0.0,
+      partidosSinEmparejar: partidosActivos.toList(),
     );
   }
 
@@ -911,13 +945,12 @@ class DerbyEngine {
     //    Si impar y permitirSobrante: tolerar sobrantes (no hay bye,
     //    simplemente no pelean y no reciben puntos gratis).
     //    El sobrante mínimo es 1 (impar), pero restricciones de peso
-    //    pueden dejar más fuera.
+    //    pueden dejar más fuera. Nos saltamos la excepción para enviar
+    //    los gallos al pool de asignación manual en pantalla.
     if (resultado.partidosSinEmparejar.isNotEmpty) {
       if (!permitirSobrante) {
-        throw RondaIncompletaException(
-          partidosSinEmparejar: resultado.partidosSinEmparejar.length,
-          idsNoEmparejados: resultado.partidosSinEmparejar,
-          detalle: 'Los partidos con ID ${resultado.partidosSinEmparejar.join(', ')} no encontraron oponente que cumpla las reglas.',
+        print(
+          '    ⚠️ No se emparejaron: ${resultado.partidosSinEmparejar}. Pasan a asignación manual.',
         );
       }
       // Log de sobrantes para análisis

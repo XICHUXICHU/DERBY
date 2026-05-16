@@ -148,6 +148,10 @@ class _DerbyPeleasScreenState extends State<DerbyPeleasScreen> {
             nombre: p.nombre,
             responsable: p.responsable,
             telefono: p.telefono,
+            estado: domain.EstadoPartido.values.firstWhere(
+              (e) => e.name == p.estado,
+              orElse: () => domain.EstadoPartido.activo,
+            ),
             puntos: p.puntos,
             eliminado: p.eliminado,
             depositoPagado: p.depositoPagado,
@@ -400,6 +404,113 @@ class _DerbyPeleasScreenState extends State<DerbyPeleasScreen> {
     for (final entry in puntosMap.entries) {
       await partidoRepository.actualizarPuntos(entry.key, entry.value);
     }
+
+    // Inyectar log en vivo a la consola
+    _imprimirLogEnVivo(puntosMap);
+  }
+
+  void _imprimirLogEnVivo(Map<int, int> puntosMap) {
+    if (!mounted) return;
+    print('\n══════════════════════════════════════════════════════');
+    print('📊 ACTUALIZACIÓN DEL DERBY EN VIVO');
+    print('══════════════════════════════════════════════════════');
+
+    // 1. Partidos inactivos
+    final inactivos = _partidos
+        .where((p) => p.estado != domain.EstadoPartido.activo)
+        .toList();
+    if (inactivos.isNotEmpty) {
+      print(
+        '🚪 PARTIDOS QUE YA NO PELEAN (Retirados / Eliminados / Descalificados):',
+      );
+      for (final p in inactivos) {
+        print(
+          '   [${p.id}] ${p.nombre} -> Estado: ${p.estado.name.toUpperCase()}',
+        );
+      }
+      print('──────────────────────────────────────────────────────');
+    }
+
+    // 2. Tabla posicional activa
+    final activos = _partidos
+        .where((p) => p.estado == domain.EstadoPartido.activo)
+        .toList();
+    activos.sort((a, b) {
+      final pA = puntosMap[a.id] ?? 0;
+      final pB = puntosMap[b.id] ?? 0;
+      return pB.compareTo(pA); // Mayor a menor
+    });
+
+    print('🏆 TABLA DE POSICIONES (Activos):');
+    for (int i = 0; i < activos.length; i++) {
+      final p = activos[i];
+      final pt = puntosMap[p.id] ?? 0;
+      print('   ${i + 1}º | ${p.nombre.padRight(25)} | $pt pts');
+    }
+
+    // 3. Chequeo matemático (Proyectar rondas faltantes)
+    final peleasHechas = <int, int>{};
+    for (final r in _rondas) {
+      for (final e in r.enfrentamientos) {
+        if (e.resultado != null &&
+            e.resultado != domain.ResultadoPelea.noPeleada) {
+          peleasHechas[e.galloA.partidoId] =
+              (peleasHechas[e.galloA.partidoId] ?? 0) + 1;
+          peleasHechas[e.galloB.partidoId] =
+              (peleasHechas[e.galloB.partidoId] ?? 0) + 1;
+        }
+      }
+    }
+
+    final posicionesPremio =
+        3; // Lo forzaremos a 3 primeros lugares para el log
+    if (activos.length > posicionesPremio) {
+      final puntajeTercero = puntosMap[activos[posicionesPremio - 1].id] ?? 0;
+      print('──────────────────────────────────────────────────────');
+      print(
+        '☠️ ELIMINACIÓN MATEMÁTICA EN VIVO (Corte Top $posicionesPremio: $puntajeTercero pts)',
+      );
+
+      bool huboEliminados = false;
+      for (int i = posicionesPremio; i < activos.length; i++) {
+        final p = activos[i];
+        final ptActual = puntosMap[p.id] ?? 0;
+        final jugadas = peleasHechas[p.id] ?? 0;
+
+        // Un partido normal pelea _rondasTotales veces, peroooo
+        // si hizo doble pelea podría tener más peleas,
+        // simplemente calculamos (rondasTotales) - peleas que ya hizo
+        final restantes = (widget.derby.rondasTotales - jugadas) > 0
+            ? (widget.derby.rondasTotales - jugadas)
+            : 0;
+
+        final ptMaximoPosible = ptActual + (restantes * _puntosVictoria);
+
+        if (ptMaximoPosible < puntajeTercero && restantes > 0) {
+          huboEliminados = true;
+          print('   ⚠️ [${p.id}] ${p.nombre} (Puntos: $ptActual)');
+          print(
+            '        Max Posible: $ptMaximoPosible pts. (Faltan $restantes peleas)',
+          );
+          print(
+            '        ELIMINADO. Ya es matemáticamente imposible que alcance $puntajeTercero pts.',
+          );
+          print('        El Juez está en posición de RETIRARLO oficialmente.');
+        } else if (ptMaximoPosible == puntajeTercero &&
+            restantes > 0 &&
+            ptActual < puntajeTercero) {
+          print(
+            '   🟡 [${p.id}] ${p.nombre} (Puntos: $ptActual) -> En la CUERDA FLOJA. Perder o empatar lo elimina hoy.',
+          );
+        }
+      }
+      if (!huboEliminados) {
+        print(
+          '   Todos los que no están en puesto de premio aún tienen posibilidades numéricas.',
+        );
+      }
+    }
+    print('══════════════════════════════════════════════════════\n');
   }
 
   // ── Estado del derby ───────────────────────────────────
@@ -491,6 +602,10 @@ class _DerbyPeleasScreenState extends State<DerbyPeleasScreen> {
             nombre: p.nombre,
             responsable: p.responsable,
             telefono: p.telefono,
+            estado: domain.EstadoPartido.values.firstWhere(
+              (e) => e.name == p.estado,
+              orElse: () => domain.EstadoPartido.activo,
+            ),
             puntos: p.puntos,
             eliminado: p.eliminado,
             depositoPagado: p.depositoPagado,
@@ -700,6 +815,16 @@ class _DerbyPeleasScreenState extends State<DerbyPeleasScreen> {
   /// uno para el reporte completo y un menú desplegable para imprimir por ronda.
   List<Widget> _buildAccionesReporte() {
     return [
+      // ── Módulo de Control Juez (Retirar/Descalificar) ───
+      IconButton(
+        icon: const Icon(
+          Icons.gavel_rounded,
+          size: 22,
+          color: Colors.orangeAccent,
+        ),
+        tooltip: 'Control de Juez (Partidos)',
+        onPressed: _abrirControlDeJuez,
+      ),
       // ── PDF de resultados completos ─────────────────────
       IconButton(
         icon: const Icon(Icons.picture_as_pdf_rounded, size: 22),
@@ -789,6 +914,210 @@ class _DerbyPeleasScreenState extends State<DerbyPeleasScreen> {
         },
       ),
     ];
+  }
+
+  // ── 🛡️ MENÚ JUEZ: ADMINISTRACIÓN DE EQUIPOS VIVOS ──────────────────────
+  Future<void> _abrirControlDeJuez() async {
+    await showDialog(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            final vivos = _partidos
+                .where((p) => p.estado == domain.EstadoPartido.activo)
+                .toList();
+            final inactivos = _partidos
+                .where((p) => p.estado != domain.EstadoPartido.activo)
+                .toList();
+
+            return Dialog(
+              backgroundColor: _kCardBg,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(
+                  maxWidth: 450,
+                  maxHeight: 600,
+                ),
+                child: Column(
+                  children: [
+                    // Header Juez
+                    Container(
+                      padding: const EdgeInsets.all(20),
+                      decoration: const BoxDecoration(
+                        color: _kAccent,
+                        borderRadius: BorderRadius.vertical(
+                          top: Radius.circular(20),
+                        ),
+                      ),
+                      child: const Row(
+                        children: [
+                          Icon(Icons.gavel_rounded, color: Colors.orangeAccent),
+                          SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              'Panel del Juez (Retiros)',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 18,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Expanded(
+                      child: ListView(
+                        padding: const EdgeInsets.all(16),
+                        children: [
+                          if (vivos.isNotEmpty) ...[
+                            const Text(
+                              'Partidos Activos (Pueden ser retirados)',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: _kAccent,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            for (final p in vivos)
+                              Card(
+                                color: Colors.white,
+                                elevation: 0,
+                                shape: RoundedRectangleBorder(
+                                  side: BorderSide(color: Colors.grey.shade300),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: ListTile(
+                                  title: Text(
+                                    p.nombre,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                  subtitle: Text(
+                                    'ID: ${p.id} • Puntos Actuales',
+                                  ),
+                                  trailing: TextButton.icon(
+                                    style: TextButton.styleFrom(
+                                      foregroundColor: Colors.red,
+                                    ),
+                                    icon: const Icon(
+                                      Icons.outbond_rounded,
+                                      size: 18,
+                                    ),
+                                    label: const Text('Retirar'),
+                                    onPressed: () async {
+                                      final conf = await showDialog<bool>(
+                                        context: context,
+                                        builder: (_) => AlertDialog(
+                                          title: const Text('Confirmar Retiro'),
+                                          content: Text(
+                                            '¿El partido ${p.nombre} se retira voluntariamente o es descalificado? Ya no entrará en futuros sorteos.',
+                                          ),
+                                          actions: [
+                                            TextButton(
+                                              onPressed: () =>
+                                                  Navigator.pop(context, false),
+                                              child: const Text('Cancelar'),
+                                            ),
+                                            TextButton(
+                                              style: TextButton.styleFrom(
+                                                foregroundColor: Colors.red,
+                                              ),
+                                              onPressed: () =>
+                                                  Navigator.pop(context, true),
+                                              child: const Text(
+                                                'Retirar Definitivo',
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      );
+                                      if (conf == true && mounted) {
+                                        await partidoRepository
+                                            .actualizarEstado(
+                                              p.id,
+                                              domain
+                                                  .EstadoPartido
+                                                  .descalificado,
+                                            );
+                                            
+                                        // NUEVO: Eliminar enfrentamientos donde este gallo iba a participar 
+                                        // para liberar a sus contrincantes y que queden "sueltos"
+                                        for (final ronda in _rondas) {
+                                          for (final e in ronda.enfrentamientos) {
+                                            if (e.resultado == null || e.resultado == domain.ResultadoPelea.noPeleada) {
+                                              if (e.galloA.partidoId == p.id || e.galloB.partidoId == p.id) {
+                                                await rondaRepository.eliminarEnfrentamiento(e.id);
+                                              }
+                                            }
+                                          }
+                                        }
+
+                                        await _cargarDatos(); // Refresh general
+                                        setModalState(() {});
+                                      }
+                                    },
+                                  ),
+                                ),
+                              ),
+                            const SizedBox(height: 16),
+                          ],
+                          if (inactivos.isNotEmpty) ...[
+                            const Text(
+                              'Partidos Fuera de Combate',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: Colors.grey,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            for (final p in inactivos)
+                              ListTile(
+                                leading: const Icon(
+                                  Icons.do_disturb_alt_rounded,
+                                  color: Colors.grey,
+                                ),
+                                title: Text(
+                                  p.nombre,
+                                  style: const TextStyle(color: Colors.grey),
+                                ),
+                                subtitle: Text(
+                                  'Estado: ${p.estado.name.toUpperCase()}',
+                                ),
+                                trailing: TextButton(
+                                  child: const Text('Reactivar'),
+                                  onPressed: () async {
+                                    await partidoRepository.actualizarEstado(
+                                      p.id,
+                                      domain.EstadoPartido.activo,
+                                    );
+                                    await _cargarDatos();
+                                    setModalState(() {});
+                                  },
+                                ),
+                              ),
+                          ],
+                        ],
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: TextButton(
+                        onPressed: () => Navigator.pop(context),
+                        child: const Text('Cerrar Panel'),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
   }
 
   /// Construye un [SorteoResultado] a partir de los datos actuales de la pantalla.

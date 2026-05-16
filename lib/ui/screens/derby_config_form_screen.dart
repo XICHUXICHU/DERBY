@@ -46,16 +46,13 @@ class _DerbyConfigFormScreenState extends State<DerbyConfigFormScreen> {
     final d = widget.derbyExistente;
 
     _nombreCtrl = TextEditingController(text: d?.nombre ?? '');
-    _rondasCtrl =
-        TextEditingController(text: '${d?.rondasTotales ?? 4}');
-    _puntosGCtrl =
-        TextEditingController(text: '${d?.puntosVictoria ?? 2}');
-    _puntosPCtrl =
-        TextEditingController(text: '${d?.puntosDerrota ?? 0}');
-    _puntosTCtrl =
-        TextEditingController(text: '${d?.puntosEmpate ?? 1}');
-    _posicionesPremioCtrl =
-        TextEditingController(text: '${d?.posicionesPremio ?? 3}');
+    _rondasCtrl = TextEditingController(text: '${d?.rondasTotales ?? 4}');
+    _puntosGCtrl = TextEditingController(text: '${d?.puntosVictoria ?? 2}');
+    _puntosPCtrl = TextEditingController(text: '${d?.puntosDerrota ?? 0}');
+    _puntosTCtrl = TextEditingController(text: '${d?.puntosEmpate ?? 1}');
+    _posicionesPremioCtrl = TextEditingController(
+      text: '${d?.posicionesPremio ?? 3}',
+    );
     _pesoMinCtrl = TextEditingController(
       text: d != null ? d.pesoMinimo.toStringAsFixed(0) : '1800',
     );
@@ -198,14 +195,15 @@ class _DerbyConfigFormScreenState extends State<DerbyConfigFormScreen> {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final intFormatter = FilteringTextInputFormatter.digitsOnly;
-    final decFormatter =
-        FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d{0,1}'));
+    final decFormatter = FilteringTextInputFormatter.allow(
+      RegExp(r'^\d+\.?\d{0,1}'),
+    );
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.esEdicion
-            ? 'Configuración del Derby'
-            : 'Nuevo Derby'),
+        title: Text(
+          widget.esEdicion ? 'Configuración del Derby' : 'Nuevo Derby',
+        ),
         centerTitle: true,
         actions: [
           if (_guardando)
@@ -306,8 +304,8 @@ class _DerbyConfigFormScreenState extends State<DerbyConfigFormScreen> {
                   Text(
                     'Define cuántos puntos se otorgan por cada resultado',
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: cs.onSurface.withValues(alpha: 0.6),
-                        ),
+                      color: cs.onSurface.withValues(alpha: 0.6),
+                    ),
                   ),
                   const SizedBox(height: 12),
                   Row(
@@ -318,8 +316,10 @@ class _DerbyConfigFormScreenState extends State<DerbyConfigFormScreen> {
                           decoration: InputDecoration(
                             labelText: 'G (Ganado)',
                             hintText: '2',
-                            prefixIcon: Icon(Icons.emoji_events,
-                                color: Colors.amber.shade700),
+                            prefixIcon: Icon(
+                              Icons.emoji_events,
+                              color: Colors.amber.shade700,
+                            ),
                             border: const OutlineInputBorder(),
                           ),
                           keyboardType: TextInputType.number,
@@ -334,8 +334,10 @@ class _DerbyConfigFormScreenState extends State<DerbyConfigFormScreen> {
                           decoration: InputDecoration(
                             labelText: 'P (Perdido)',
                             hintText: '0',
-                            prefixIcon: Icon(Icons.cancel,
-                                color: Colors.red.shade400),
+                            prefixIcon: Icon(
+                              Icons.cancel,
+                              color: Colors.red.shade400,
+                            ),
                             border: const OutlineInputBorder(),
                           ),
                           keyboardType: TextInputType.number,
@@ -350,8 +352,10 @@ class _DerbyConfigFormScreenState extends State<DerbyConfigFormScreen> {
                           decoration: InputDecoration(
                             labelText: 'T (Tablas)',
                             hintText: '1',
-                            prefixIcon: Icon(Icons.handshake,
-                                color: Colors.orange.shade400),
+                            prefixIcon: Icon(
+                              Icons.handshake,
+                              color: Colors.orange.shade400,
+                            ),
                             border: const OutlineInputBorder(),
                           ),
                           keyboardType: TextInputType.number,
@@ -374,8 +378,8 @@ class _DerbyConfigFormScreenState extends State<DerbyConfigFormScreen> {
                   Text(
                     'Rango de peso aceptado para gallos P.L. y peso del gallo base',
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: cs.onSurface.withValues(alpha: 0.6),
-                        ),
+                      color: cs.onSurface.withValues(alpha: 0.6),
+                    ),
                   ),
                   const SizedBox(height: 12),
                   Row(
@@ -390,7 +394,8 @@ class _DerbyConfigFormScreenState extends State<DerbyConfigFormScreen> {
                             border: OutlineInputBorder(),
                           ),
                           keyboardType: const TextInputType.numberWithOptions(
-                              decimal: true),
+                            decimal: true,
+                          ),
                           inputFormatters: [decFormatter],
                           validator: (v) => _reqDecimal(v, min: 100),
                         ),
@@ -406,7 +411,8 @@ class _DerbyConfigFormScreenState extends State<DerbyConfigFormScreen> {
                             border: OutlineInputBorder(),
                           ),
                           keyboardType: const TextInputType.numberWithOptions(
-                              decimal: true),
+                            decimal: true,
+                          ),
                           inputFormatters: [decFormatter],
                           validator: _validarPesoMax,
                         ),
@@ -424,7 +430,8 @@ class _DerbyConfigFormScreenState extends State<DerbyConfigFormScreen> {
                       border: OutlineInputBorder(),
                     ),
                     keyboardType: const TextInputType.numberWithOptions(
-                        decimal: true),
+                      decimal: true,
+                    ),
                     inputFormatters: [decFormatter],
                     validator: (v) {
                       if (v == null || v.trim().isEmpty) return null;
@@ -465,10 +472,12 @@ class _DerbyConfigFormScreenState extends State<DerbyConfigFormScreen> {
                       suffixText: 'g',
                       prefixIcon: Icon(Icons.compare_arrows),
                       border: OutlineInputBorder(),
-                      helperText: 'Solo aplica a peleas de peso libre, no a gallo base',
+                      helperText:
+                          'Solo aplica a peleas de peso libre, no a gallo base',
                     ),
                     keyboardType: const TextInputType.numberWithOptions(
-                        decimal: true),
+                      decimal: true,
+                    ),
                     inputFormatters: [decFormatter],
                     validator: (v) {
                       if (v == null || v.trim().isEmpty) return null;
@@ -487,8 +496,7 @@ class _DerbyConfigFormScreenState extends State<DerbyConfigFormScreen> {
                         'muestra advertencias y permite continuar.',
                       ),
                       value: _validacionEstricta,
-                      onChanged: (v) =>
-                          setState(() => _validacionEstricta = v),
+                      onChanged: (v) => setState(() => _validacionEstricta = v),
                       secondary: const Icon(Icons.verified),
                     ),
                   ),
@@ -501,12 +509,11 @@ class _DerbyConfigFormScreenState extends State<DerbyConfigFormScreen> {
                       child: SwitchListTile(
                         title: const Text('Precargar datos de prueba'),
                         subtitle: const Text(
-                          '8 partidos con 4 gallos cada uno '
-                          '(datos de ejemplo para testing).',
+                          '30 partidos con 4 gallos cada uno '
+                          '(1 base 2.2kg y 3 libres 2.0-2.5kg).',
                         ),
                         value: _precargarDatos,
-                        onChanged: (v) =>
-                            setState(() => _precargarDatos = v),
+                        onChanged: (v) => setState(() => _precargarDatos = v),
                         secondary: const Icon(Icons.science),
                       ),
                     ),
@@ -522,9 +529,9 @@ class _DerbyConfigFormScreenState extends State<DerbyConfigFormScreen> {
                   // ── BOTÓN GUARDAR ───────────────────
                   FilledButton.icon(
                     onPressed: _guardando ? null : _guardar,
-                    icon: Icon(widget.esEdicion
-                        ? Icons.save
-                        : Icons.add_circle),
+                    icon: Icon(
+                      widget.esEdicion ? Icons.save : Icons.add_circle,
+                    ),
                     label: Text(
                       widget.esEdicion
                           ? 'GUARDAR CONFIGURACIÓN'
@@ -581,8 +588,10 @@ class _DerbyConfigFormScreenState extends State<DerbyConfigFormScreen> {
             const SizedBox(height: 12),
             _resumenItem('Rondas', _rondasCtrl.text),
             _resumenItem('Puntos', 'G=$g  P=$p  T=$t'),
-            _resumenItem('Peso P.L.',
-                '${_pesoMinCtrl.text}g – ${_pesoMaxCtrl.text}g'),
+            _resumenItem(
+              'Peso P.L.',
+              '${_pesoMinCtrl.text}g – ${_pesoMaxCtrl.text}g',
+            ),
             _resumenItem(
               'Peso base',
               _pesoBaseCtrl.text.trim().isEmpty
@@ -627,9 +636,7 @@ class _DerbyConfigFormScreenState extends State<DerbyConfigFormScreen> {
               style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
             ),
           ),
-          Expanded(
-            child: Text(value, style: const TextStyle(fontSize: 12)),
-          ),
+          Expanded(child: Text(value, style: const TextStyle(fontSize: 12))),
         ],
       ),
     );
@@ -658,15 +665,13 @@ class _SectionHeader extends StatelessWidget {
         Text(
           title,
           style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                color: color,
-                fontWeight: FontWeight.bold,
-                letterSpacing: 1.5,
-              ),
+            color: color,
+            fontWeight: FontWeight.bold,
+            letterSpacing: 1.5,
+          ),
         ),
         const SizedBox(width: 8),
-        Expanded(
-          child: Divider(color: color.withValues(alpha: 0.3)),
-        ),
+        Expanded(child: Divider(color: color.withValues(alpha: 0.3))),
       ],
     );
   }

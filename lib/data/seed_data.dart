@@ -1,20 +1,22 @@
+import 'dart:math' as math;
 import '../main.dart' show partidoRepository, galloRepository;
 
 /// Datos de prueba precargados para un derby.
 ///
-/// Contiene 8 partidos con 4 gallos cada uno (1 base + 3 P.L.).
-/// Los datos replican la tabla de ejemplo estándar.
+/// Contiene 30 partidos con 4 gallos cada uno (1 base 2,200 + 3 P.L. 2,000-2,500).
+/// Los datos replican la tabla de un derby masivo real.
 class SeedData {
   SeedData._();
 
-  /// Siembra los 8 partidos con sus gallos en el derby [derbyId].
+  /// Siembra los partidos con sus gallos en el derby [derbyId].
   ///
   /// Retorna la cantidad de partidos creados.
   static Future<int> sembrar(int derbyId) async {
     // Prefijo para garantizar anillos únicos entre derbies
     final prefix = 'D${derbyId}_';
+    final partidos = _generarPartidos();
 
-    for (final p in _partidos) {
+    for (final p in partidos) {
       final partidoId = await partidoRepository.crear(
         derbyId: derbyId,
         nombre: p.nombre,
@@ -40,85 +42,47 @@ class SeedData {
       }
     }
 
-    return _partidos.length;
+    return partidos.length;
   }
 
-  // ── Datos de prueba ──────────────────────────────────────
+  // ── Generador de datos (30 partidos) ─────────────────────────
 
-  static final List<_PartidoSeed> _partidos = [
-    _PartidoSeed(
-      nombre: 'EL ROSAL',
-      galloBase: _GalloSeed('001', 2100),
-      gallosPL: [
-        _GalloSeed('005', 1980),
-        _GalloSeed('010', 2025),
-        _GalloSeed('006', 2360),
-      ],
-    ),
-    _PartidoSeed(
-      nombre: 'FAMILIA LOYOLA',
-      galloBase: _GalloSeed('032', 2100),
-      gallosPL: [
-        _GalloSeed('040', 2215),
-        _GalloSeed('031', 2340),
-        _GalloSeed('041', 2490),
-      ],
-    ),
-    _PartidoSeed(
-      nombre: 'ISSA Y LOS CARNALES',
-      galloBase: _GalloSeed('066', 2100),
-      gallosPL: [
-        _GalloSeed('067', 2270),
-        _GalloSeed('068', 2340),
-        _GalloSeed('069', 2550),
-      ],
-    ),
-    _PartidoSeed(
-      nombre: 'JR. DIAZ',
-      galloBase: _GalloSeed('012', 2100),
-      gallosPL: [
-        _GalloSeed('003', 2260),
-        _GalloSeed('004', 2465),
-        _GalloSeed('002', 2550),
-      ],
-    ),
-    _PartidoSeed(
-      nombre: 'LA JOYA',
-      galloBase: _GalloSeed('086', 2100),
-      gallosPL: [
-        _GalloSeed('075', 2010),
-        _GalloSeed('078', 2225),
-        _GalloSeed('084', 2390),
-      ],
-    ),
-    _PartidoSeed(
-      nombre: 'LA NVA ESPERANZA Y EL JAROCHO II',
-      galloBase: _GalloSeed('055', 2100),
-      gallosPL: [
-        _GalloSeed('052', 1925),
-        _GalloSeed('051', 2350),
-        _GalloSeed('053', 2450),
-      ],
-    ),
-    _PartidoSeed(
-      nombre: 'MG FARM',
-      galloBase: _GalloSeed('009', 2100),
-      gallosPL: [
-        _GalloSeed('008', 2280),
-        _GalloSeed('015', 2380),
-        _GalloSeed('016', 2445),
-      ],
-    ),
-    _PartidoSeed(
-      nombre: 'RANCHO NUEVO',
-      galloBase: _GalloSeed('023', 2100),
-      gallosPL: [
-        _GalloSeed('007', 2040),
-        _GalloSeed('030', 2045),
-        _GalloSeed('011', 2205),
-      ],
-    ),
-  ];
+  static List<_PartidoSeed> _generarPartidos() {
+    final rn = math.Random(12345); // Seed fijo para mismas pruebas
+    final nombres = [
+      'EL ROSAL', 'FAMILIA LOYOLA', 'ISSA Y LOS CARNALES', 'JR. DIAZ', 'LA JOYA', 
+      'LA NVA ESPERANZA Y EL JAROCHO II', 'MG FARM', 'RANCHO NUEVO', 'EL IMPOSIBLE', 
+      'LOS COMPADRES', 'CRIADERO EL ENCANTO', 'GALLOS DE ORO', 'EL DURAZNO', 
+      'ATARJEA GTO', 'LOS 3 POTRILLOS', 'HACIENDA VIEJA', 'LA HERRADURA', 
+      'PALENQUE SUR', 'LOS CHINGONES', 'GALLEROS UNIDOS', 'EL PALOMINO', 
+      'TRES HERMANOS', 'LA REVANCHA', 'LOS PRIMOS', 'GALLOS FINOS MX', 
+      'RANCHO EL PATRON', 'EL GALLO NEGRO', 'LOS INTOCABLES', 'EL RELAMPAGO', 
+      'LA TEMPESTAD'
+    ];
+
+    List<_PartidoSeed> partidos = [];
+    int anilloCount = 100;
+
+    for (var nombre in nombres) {
+      // Gallo base obligatorio: 2200 g
+      final base = _GalloSeed('A${anilloCount++}', 2200);
+      
+      // 3 gallos libres entre 2.0 y 2.5 kg (2000g a 2500g)
+      List<_GalloSeed> libres = [];
+      for (int i = 0; i < 3; i++) {
+        // Generar peso entre 2000 y 2500 en saltos de 5g
+        double p = 2000.0 + (rn.nextInt(101) * 5);
+        libres.add(_GalloSeed('A${anilloCount++}', p));
+      }
+
+      partidos.add(_PartidoSeed(
+        nombre: nombre,
+        galloBase: base,
+        gallosPL: libres,
+      ));
+    }
+    return partidos;
+  }
 }
 
 // ── Modelos auxiliares para seed ──

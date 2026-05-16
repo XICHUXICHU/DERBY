@@ -73,6 +73,32 @@ class RondaRepository {
         .write(EnfrentamientosCompanion(resultado: Value(resultado)));
   }
 
+  /// Registra o actualiza un enfrentamiento explícito en la base de datos
+  Future<void> registrarEnfrentamientoManual({
+    required int rondaId,
+    required int galloAId,
+    required int galloBId,
+    required double diferenciaPeso,
+  }) async {
+    await _db
+        .into(_db.enfrentamientos)
+        .insert(
+          EnfrentamientosCompanion.insert(
+            rondaId: rondaId,
+            galloAId: galloAId,
+            galloBId: galloBId,
+            diferenciaPeso: diferenciaPeso,
+          ),
+        );
+  }
+
+  /// Eliminar enfrentamiento específico de la Base de Datos.
+  Future<void> eliminarEnfrentamiento(int enfrentamientoId) async {
+    await (_db.delete(
+      _db.enfrentamientos,
+    )..where((e) => e.id.equals(enfrentamientoId))).go();
+  }
+
   /// Eliminar todas las rondas y enfrentamientos de un derby.
   Future<void> eliminarPorDerby(int derbyId) async {
     await _db.transaction(() async {
