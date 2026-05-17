@@ -1,0 +1,229 @@
+Analyzing derby2_flutter...                                     
+
+warning • The value of the local variable 'numPartidosActivos' isn't used • lib/application/usecases/generar_sorteo.dart:79:11 • unused_local_variable
+   info • Don't invoke 'print' in production code • lib/application/usecases/generar_sorteo.dart:95:7 • avoid_print
+   info • Don't invoke 'print' in production code • lib/application/usecases/generar_sorteo.dart:138:7 • avoid_print
+   info • Don't invoke 'print' in production code • lib/application/usecases/generar_sorteo.dart:178:7 • avoid_print
+   info • Don't invoke 'print' in production code • lib/core/security/license_manager.dart:260:7 • avoid_print
+   info • Unnecessary braces in a string interpolation • lib/domain/derby.dart:39:44 • unnecessary_brace_in_string_interps
+   info • Dangling library doc comment • lib/domain/excepciones.dart:1:1 • dangling_library_doc_comments
+   info • Parameters ''mensaje' and 'detalle'' could be super parameters • lib/domain/excepciones.dart:75:9 • use_super_parameters
+   info • Don't invoke 'print' in production code • lib/engine/derby_engine.dart:234:5 • avoid_print
+   info • Don't invoke 'print' in production code • lib/engine/derby_engine.dart:235:5 • avoid_print
+   info • Don't invoke 'print' in production code • lib/engine/derby_engine.dart:240:7 • avoid_print
+   info • Don't invoke 'print' in production code • lib/engine/derby_engine.dart:243:7 • avoid_print
+   info • Don't invoke 'print' in production code • lib/engine/derby_engine.dart:245:7 • avoid_print
+   info • Don't invoke 'print' in production code • lib/engine/derby_engine.dart:247:5 • avoid_print
+   info • Don't invoke 'print' in production code • lib/engine/derby_engine.dart:248:5 • avoid_print
+   info • Don't invoke 'print' in production code • lib/engine/derby_engine.dart:263:9 • avoid_print
+   info • Don't invoke 'print' in production code • lib/engine/derby_engine.dart:278:7 • avoid_print
+   info • Don't invoke 'print' in production code • lib/engine/derby_engine.dart:320:5 • avoid_print
+   info • Don't invoke 'print' in production code • lib/engine/derby_engine.dart:325:7 • avoid_print
+   info • Don't invoke 'print' in production code • lib/engine/derby_engine.dart:330:7 • avoid_print
+   info • Don't invoke 'print' in production code • lib/engine/derby_engine.dart:359:9 • avoid_print
+   info • Don't invoke 'print' in production code • lib/engine/derby_engine.dart:376:7 • avoid_print
+   info • Don't invoke 'print' in production code • lib/engine/derby_engine.dart:421:5 • avoid_print
+   info • Don't invoke 'print' in production code • lib/engine/derby_engine.dart:429:5 • avoid_print
+   info • Don't invoke 'print' in production code • lib/engine/derby_engine.dart:440:5 • avoid_print
+   info • Don't invoke 'print' in production code • lib/engine/derby_engine.dart:461:7 • avoid_print
+   info • Don't invoke 'print' in production code • lib/engine/derby_engine.dart:466:5 • avoid_print
+   info • Don't invoke 'print' in production code • lib/engine/derby_engine.dart:468:7 • avoid_print
+   info • Don't invoke 'print' in production code • lib/engine/derby_engine.dart:476:7 • avoid_print
+   info • Don't invoke 'print' in production code • lib/engine/derby_engine.dart:487:9 • avoid_print
+   info • Don't invoke 'print' in production code • lib/engine/derby_engine.dart:490:9 • avoid_print
+   info • Don't invoke 'print' in production code • lib/engine/derby_engine.dart:499:5 • avoid_print
+   info • Don't invoke 'print' in production code • lib/engine/derby_engine.dart:535:5 • avoid_print
+   info • Don't invoke 'print' in production code • lib/engine/derby_engine.dart:536:5 • avoid_print
+   info • Don't invoke 'print' in production code • lib/engine/derby_engine.dart:584:5 • avoid_print
+   info • Don't invoke 'print' in production code • lib/engine/derby_engine.dart:587:7 • avoid_print
+   info • Don't invoke 'print' in production code • lib/engine/derby_engine.dart:591:5 • avoid_print
+   info • Don't invoke 'print' in production code • lib/engine/derby_engine.dart:592:5 • avoid_print
+   info • Don't invoke 'print' in production code • lib/engine/derby_engine.dart:599:5 • avoid_print
+   info • Don't invoke 'print' in production code • lib/engine/derby_engine.dart:615:7 • avoid_print
+   info • Don't invoke 'print' in production code • lib/engine/derby_engine.dart:630:5 • avoid_print
+   info • Don't invoke 'print' in production code • lib/engine/derby_engine.dart:683:7 • avoid_print
+   info • Don't invoke 'print' in production code • lib/engine/derby_engine.dart:723:5 • avoid_print
+   info • Don't invoke 'print' in production code • lib/engine/derby_engine.dart:809:5 • avoid_print
+   info • Don't invoke 'print' in production code • lib/engine/derby_engine.dart:816:9 • avoid_print
+   info • Don't invoke 'print' in production code • lib/engine/derby_engine.dart:824:7 • avoid_print
+   info • Don't invoke 'print' in production code • lib/engine/derby_engine.dart:848:5 • avoid_print
+   info • Don't invoke 'print' in production code • lib/engine/derby_engine.dart:880:5 • avoid_print
+   info • Don't invoke 'print' in production code • lib/engine/derby_engine.dart:881:5 • avoid_print
+   info • Don't invoke 'print' in production code • lib/engine/derby_engine.dart:895:5 • avoid_print
+   info • Don't invoke 'print' in production code • lib/engine/derby_engine.dart:904:5 • avoid_print
+   info • Don't invoke 'print' in production code • lib/engine/derby_engine.dart:908:7 • avoid_print
+   info • Don't invoke 'print' in production code • lib/engine/derby_engine.dart:937:7 • avoid_print
+   info • Don't invoke 'print' in production code • lib/engine/derby_engine.dart:954:9 • avoid_print
+   info • Don't invoke 'print' in production code • lib/engine/derby_engine.dart:959:7 • avoid_print
+   info • Don't invoke 'print' in production code • lib/engine/derby_engine.dart:1046:5 • avoid_print
+   info • Don't invoke 'print' in production code • lib/engine/derby_engine.dart:1047:5 • avoid_print
+   info • Don't invoke 'print' in production code • lib/engine/derby_engine.dart:1048:5 • avoid_print
+   info • Don't invoke 'print' in production code • lib/engine/derby_engine.dart:1049:5 • avoid_print
+   info • Don't invoke 'print' in production code • lib/engine/derby_engine.dart:1050:5 • avoid_print
+   info • Don't invoke 'print' in production code • lib/engine/derby_engine.dart:1051:5 • avoid_print
+   info • Don't invoke 'print' in production code • lib/engine/derby_engine.dart:1052:5 • avoid_print
+   info • Don't invoke 'print' in production code • lib/engine/derby_engine.dart:1070:5 • avoid_print
+   info • Don't invoke 'print' in production code • lib/engine/derby_engine.dart:1122:7 • avoid_print
+   info • Don't invoke 'print' in production code • lib/engine/derby_engine.dart:1131:9 • avoid_print
+  error • The getter 'partidoId1' isn't defined for the type 'Compadres' • lib/engine/matchmaking/global_pool_matcher.dart:21:16 • undefined_getter
+  error • The getter 'partidoId2' isn't defined for the type 'Compadres' • lib/engine/matchmaking/global_pool_matcher.dart:21:38 • undefined_getter
+  error • The getter 'partidoId1' isn't defined for the type 'Compadres' • lib/engine/matchmaking/global_pool_matcher.dart:22:16 • undefined_getter
+  error • The getter 'partidoId2' isn't defined for the type 'Compadres' • lib/engine/matchmaking/global_pool_matcher.dart:22:38 • undefined_getter
+   info • The constant name 'MAX_ITER' isn't a lowerCamelCase identifier • lib/engine/matchmaking/global_pool_matcher.dart:36:15 • constant_identifier_names
+   info • The 'if' statement could be replaced by a null-aware assignment • lib/engine/matchmaking/global_pool_matcher.dart:87:5 • prefer_conditional_assignment
+   info • Don't invoke 'print' in production code • lib/firebase_tool.dart:12:3 • avoid_print
+   info • Don't invoke 'print' in production code • lib/firebase_tool.dart:25:5 • avoid_print
+   info • Don't invoke 'print' in production code • lib/firebase_tool.dart:27:5 • avoid_print
+  error • The property 'partidoId' can't be unconditionally accessed because the receiver can be 'null' • lib/ui/reports/reporte_ronda_pdf.dart:163:37 • unchecked_use_of_nullable_value
+  error • The property 'anillo' can't be unconditionally accessed because the receiver can be 'null' • lib/ui/reports/reporte_ronda_pdf.dart:171:32 • unchecked_use_of_nullable_value
+  error • The property 'pesoGramos' can't be unconditionally accessed because the receiver can be 'null' • lib/ui/reports/reporte_ronda_pdf.dart:171:49 • unchecked_use_of_nullable_value
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/ui/screens/activation_screen.dart:106:45 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/ui/screens/activation_screen.dart:109:47 • deprecated_member_use
+   info • Don't invoke 'print' in production code • lib/ui/screens/derby_grid_screen.dart:736:5 • avoid_print
+   info • Don't invoke 'print' in production code • lib/ui/screens/derby_grid_screen.dart:737:5 • avoid_print
+   info • Don't invoke 'print' in production code • lib/ui/screens/derby_grid_screen.dart:738:5 • avoid_print
+   info • Don't invoke 'print' in production code • lib/ui/screens/derby_grid_screen.dart:739:5 • avoid_print
+   info • Don't invoke 'print' in production code • lib/ui/screens/derby_grid_screen.dart:742:5 • avoid_print
+   info • Don't invoke 'print' in production code • lib/ui/screens/derby_grid_screen.dart:745:5 • avoid_print
+   info • Don't invoke 'print' in production code • lib/ui/screens/derby_grid_screen.dart:748:5 • avoid_print
+   info • Don't invoke 'print' in production code • lib/ui/screens/derby_grid_screen.dart:759:7 • avoid_print
+   info • Don't invoke 'print' in production code • lib/ui/screens/derby_grid_screen.dart:763:5 • avoid_print
+   info • Don't invoke 'print' in production code • lib/ui/screens/derby_grid_screen.dart:766:7 • avoid_print
+   info • Don't invoke 'print' in production code • lib/ui/screens/derby_grid_screen.dart:768:5 • avoid_print
+   info • Don't invoke 'print' in production code • lib/ui/screens/derby_grid_screen.dart:778:5 • avoid_print
+   info • Don't invoke 'print' in production code • lib/ui/screens/derby_grid_screen.dart:780:7 • avoid_print
+   info • Don't invoke 'print' in production code • lib/ui/screens/derby_grid_screen.dart:784:9 • avoid_print
+   info • Don't invoke 'print' in production code • lib/ui/screens/derby_grid_screen.dart:807:5 • avoid_print
+   info • Don't invoke 'print' in production code • lib/ui/screens/derby_grid_screen.dart:829:7 • avoid_print
+   info • Don't invoke 'print' in production code • lib/ui/screens/derby_grid_screen.dart:845:7 • avoid_print
+   info • Don't invoke 'print' in production code • lib/ui/screens/derby_grid_screen.dart:848:7 • avoid_print
+   info • Don't invoke 'print' in production code • lib/ui/screens/derby_grid_screen.dart:849:7 • avoid_print
+   info • Don't invoke 'print' in production code • lib/ui/screens/derby_grid_screen.dart:850:7 • avoid_print
+   info • Don't invoke 'print' in production code • lib/ui/screens/derby_grid_screen.dart:851:7 • avoid_print
+   info • The local variable '_nombresPid' starts with an underscore • lib/ui/screens/derby_grid_screen.dart:854:13 • no_leading_underscores_for_local_identifiers
+   info • Don't invoke 'print' in production code • lib/ui/screens/derby_grid_screen.dart:875:9 • avoid_print
+   info • Don't invoke 'print' in production code • lib/ui/screens/derby_grid_screen.dart:877:11 • avoid_print
+   info • Don't invoke 'print' in production code • lib/ui/screens/derby_grid_screen.dart:882:11 • avoid_print
+   info • Don't invoke 'print' in production code • lib/ui/screens/derby_grid_screen.dart:886:9 • avoid_print
+   info • Don't invoke 'print' in production code • lib/ui/screens/derby_grid_screen.dart:887:9 • avoid_print
+   info • Don't invoke 'print' in production code • lib/ui/screens/derby_grid_screen.dart:888:9 • avoid_print
+   info • Don't invoke 'print' in production code • lib/ui/screens/derby_grid_screen.dart:920:11 • avoid_print
+   info • Don't invoke 'print' in production code • lib/ui/screens/derby_grid_screen.dart:937:9 • avoid_print
+   info • Don't invoke 'print' in production code • lib/ui/screens/derby_grid_screen.dart:938:9 • avoid_print
+   info • Don't invoke 'print' in production code • lib/ui/screens/derby_grid_screen.dart:945:11 • avoid_print
+   info • Don't invoke 'print' in production code • lib/ui/screens/derby_grid_screen.dart:947:9 • avoid_print
+   info • Don't invoke 'print' in production code • lib/ui/screens/derby_grid_screen.dart:951:7 • avoid_print
+   info • Don't invoke 'print' in production code • lib/ui/screens/derby_grid_screen.dart:952:7 • avoid_print
+   info • Don't invoke 'print' in production code • lib/ui/screens/derby_grid_screen.dart:953:7 • avoid_print
+   info • Don't invoke 'print' in production code • lib/ui/screens/derby_grid_screen.dart:954:7 • avoid_print
+   info • Don't invoke 'print' in production code • lib/ui/screens/derby_grid_screen.dart:955:7 • avoid_print
+   info • Don't invoke 'print' in production code • lib/ui/screens/derby_grid_screen.dart:956:7 • avoid_print
+   info • Don't invoke 'print' in production code • lib/ui/screens/derby_grid_screen.dart:971:9 • avoid_print
+   info • Don't invoke 'print' in production code • lib/ui/screens/derby_grid_screen.dart:973:11 • avoid_print
+   info • Don't invoke 'print' in production code • lib/ui/screens/derby_grid_screen.dart:978:9 • avoid_print
+   info • Don't invoke 'print' in production code • lib/ui/screens/derby_grid_screen.dart:981:7 • avoid_print
+   info • Don't invoke 'print' in production code • lib/ui/screens/derby_grid_screen.dart:1002:7 • avoid_print
+   info • Don't invoke 'print' in production code • lib/ui/screens/derby_grid_screen.dart:1009:7 • avoid_print
+   info • Don't invoke 'print' in production code • lib/ui/screens/derby_grid_screen.dart:1010:7 • avoid_print
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/ui/screens/derby_peleas_reassign.dart:186:45 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/ui/screens/derby_peleas_reassign.dart:286:46 • deprecated_member_use
+   info • Don't invoke 'print' in production code • lib/ui/screens/derby_peleas_screen.dart:422:5 • avoid_print
+   info • Don't invoke 'print' in production code • lib/ui/screens/derby_peleas_screen.dart:423:5 • avoid_print
+   info • Don't invoke 'print' in production code • lib/ui/screens/derby_peleas_screen.dart:424:5 • avoid_print
+   info • Don't invoke 'print' in production code • lib/ui/screens/derby_peleas_screen.dart:431:7 • avoid_print
+   info • Don't invoke 'print' in production code • lib/ui/screens/derby_peleas_screen.dart:435:9 • avoid_print
+   info • Don't invoke 'print' in production code • lib/ui/screens/derby_peleas_screen.dart:439:7 • avoid_print
+   info • Don't invoke 'print' in production code • lib/ui/screens/derby_peleas_screen.dart:452:5 • avoid_print
+   info • Don't invoke 'print' in production code • lib/ui/screens/derby_peleas_screen.dart:456:7 • avoid_print
+   info • Don't invoke 'print' in production code • lib/ui/screens/derby_peleas_screen.dart:479:7 • avoid_print
+   info • Don't invoke 'print' in production code • lib/ui/screens/derby_peleas_screen.dart:480:7 • avoid_print
+   info • Don't invoke 'print' in production code • lib/ui/screens/derby_peleas_screen.dart:501:11 • avoid_print
+   info • Don't invoke 'print' in production code • lib/ui/screens/derby_peleas_screen.dart:502:11 • avoid_print
+   info • Don't invoke 'print' in production code • lib/ui/screens/derby_peleas_screen.dart:505:11 • avoid_print
+   info • Don't invoke 'print' in production code • lib/ui/screens/derby_peleas_screen.dart:508:11 • avoid_print
+   info • Don't invoke 'print' in production code • lib/ui/screens/derby_peleas_screen.dart:512:11 • avoid_print
+   info • Don't invoke 'print' in production code • lib/ui/screens/derby_peleas_screen.dart:518:9 • avoid_print
+   info • Don't invoke 'print' in production code • lib/ui/screens/derby_peleas_screen.dart:523:5 • avoid_print
+   info • Don't invoke 'print' in production code • lib/ui/screens/derby_peleas_screen.dart:696:5 • avoid_print
+   info • Don't invoke 'print' in production code • lib/ui/screens/derby_peleas_screen.dart:697:5 • avoid_print
+   info • Don't invoke 'print' in production code • lib/ui/screens/derby_peleas_screen.dart:698:5 • avoid_print
+   info • Don't invoke 'print' in production code • lib/ui/screens/derby_peleas_screen.dart:773:7 • avoid_print
+   info • Don't invoke 'print' in production code • lib/ui/screens/derby_peleas_screen.dart:802:7 • avoid_print
+   info • Don't invoke 'print' in production code • lib/ui/screens/derby_peleas_screen.dart:811:7 • avoid_print
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/ui/screens/derby_peleas_screen.dart:2001:32 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/ui/screens/home_screen.dart:227:52 • deprecated_member_use
+   info • Don't invoke 'print' in production code • parse_test.dart:5:3 • avoid_print
+   info • Don't invoke 'print' in production code • parse_test.dart:10:3 • avoid_print
+   info • Don't invoke 'print' in production code • parse_test2.dart:4:3 • avoid_print
+warning • Unused import: 'dart:math' • patch_sa.dart:1:8 • unused_import
+   info • Don't invoke 'print' in production code • patch_sa.dart:4:3 • avoid_print
+   info • Use interpolation to compose strings and values • rewrite_generar_sorteo.dart:56:62 • prefer_interpolation_to_compose_strings
+  error • Too many positional arguments: 1 expected, but 2 found • rewrite_generar_sorteo.dart:60:103 • extra_positional_arguments_could_be_named
+  error • The getter 'dotAll' isn't defined for the type 'RegExp' • rewrite_generar_sorteo.dart:60:110 • undefined_getter
+  error • Too many positional arguments: 1 expected, but 2 found • rewrite_generar_sorteo.dart:80:95 • extra_positional_arguments_could_be_named
+  error • The getter 'dotAll' isn't defined for the type 'RegExp' • rewrite_generar_sorteo.dart:80:102 • undefined_getter
+   info • The local variable '_gallo' starts with an underscore • test/engine/engine_test.dart:10:9 • no_leading_underscores_for_local_identifiers
+   info • The local variable '_partido' starts with an underscore • test/engine/engine_test.dart:20:11 • no_leading_underscores_for_local_identifiers
+  error • The property 'esBase' can't be unconditionally accessed because the receiver can be 'null' • test/engine/engine_test.dart:562:25 • unchecked_use_of_nullable_value
+  error • The property 'esBase' can't be unconditionally accessed because the receiver can be 'null' • test/engine/engine_test.dart:637:47 • unchecked_use_of_nullable_value
+  error • The property 'partidoId' can't be unconditionally accessed because the receiver can be 'null' • test/engine/engine_test.dart:678:52 • unchecked_use_of_nullable_value
+  error • The property 'id' can't be unconditionally accessed because the receiver can be 'null' • test/engine/engine_test.dart:779:44 • unchecked_use_of_nullable_value
+  error • The property 'id' can't be unconditionally accessed because the receiver can be 'null' • test/engine/engine_test.dart:780:45 • unchecked_use_of_nullable_value
+  error • The property 'partidoId' can't be unconditionally accessed because the receiver can be 'null' • test/engine/engine_test.dart:836:58 • unchecked_use_of_nullable_value
+  error • The property 'partidoId' can't be unconditionally accessed because the receiver can be 'null' • test/engine/engine_test.dart:838:54 • unchecked_use_of_nullable_value
+  error • The property 'partidoId' can't be unconditionally accessed because the receiver can be 'null' • test/engine/engine_test.dart:840:42 • unchecked_use_of_nullable_value
+  error • The property 'partidoId' can't be unconditionally accessed because the receiver can be 'null' • test/engine/engine_test.dart:977:28 • unchecked_use_of_nullable_value
+  error • The property 'id' can't be unconditionally accessed because the receiver can be 'null' • test/engine/engine_test.dart:984:73 • unchecked_use_of_nullable_value
+  error • The property 'id' can't be unconditionally accessed because the receiver can be 'null' • test/engine/engine_test.dart:1246:39 • unchecked_use_of_nullable_value
+  error • The property 'anillo' can't be unconditionally accessed because the receiver can be 'null' • test/engine/engine_test.dart:1248:39 • unchecked_use_of_nullable_value
+  error • The property 'partidoId' can't be unconditionally accessed because the receiver can be 'null' • test/engine/engine_test.dart:1369:38 • unchecked_use_of_nullable_value
+   info • Don't invoke 'print' in production code • test/engine/engine_test.dart:1446:7 • avoid_print
+  error • The property 'id' can't be unconditionally accessed because the receiver can be 'null' • test/engine/engine_test.dart:1500:44 • unchecked_use_of_nullable_value
+  error • The property 'anillo' can't be unconditionally accessed because the receiver can be 'null' • test/engine/engine_test.dart:1502:39 • unchecked_use_of_nullable_value
+  error • The property 'id' can't be unconditionally accessed because the receiver can be 'null' • test/engine/engine_test.dart:1505:37 • unchecked_use_of_nullable_value
+  error • The property 'partidoId' can't be unconditionally accessed because the receiver can be 'null' • test/engine/engine_test.dart:1551:38 • unchecked_use_of_nullable_value
+  error • The property 'partidoId' can't be unconditionally accessed because the receiver can be 'null' • test/engine/engine_test.dart:1595:37 • unchecked_use_of_nullable_value
+  error • The property 'partidoId' can't be unconditionally accessed because the receiver can be 'null' • test/engine/engine_test.dart:1648:54 • unchecked_use_of_nullable_value
+   info • Don't invoke 'print' in production code • test/engine/engine_test.dart:1701:7 • avoid_print
+  error • The property 'id' can't be unconditionally accessed because the receiver can be 'null' • test/engine/engine_test.dart:1839:46 • unchecked_use_of_nullable_value
+  error • The property 'id' can't be unconditionally accessed because the receiver can be 'null' • test/engine/engine_test.dart:1841:39 • unchecked_use_of_nullable_value
+  error • The property 'id' can't be unconditionally accessed because the receiver can be 'null' • test/engine/engine_test.dart:1844:39 • unchecked_use_of_nullable_value
+  error • The property 'partidoId' can't be unconditionally accessed because the receiver can be 'null' • test/engine/engine_test.dart:1902:36 • unchecked_use_of_nullable_value
+   info • Dangling library doc comment • test/engine/traza_11p_4r_test.dart:1:1 • dangling_library_doc_comments
+  error • The property 'id' can't be unconditionally accessed because the receiver can be 'null' • test/engine/traza_11p_4r_test.dart:114:39 • unchecked_use_of_nullable_value
+  error • The property 'anillo' can't be unconditionally accessed because the receiver can be 'null' • test/engine/traza_11p_4r_test.dart:116:39 • unchecked_use_of_nullable_value
+  error • The property 'partidoId' can't be unconditionally accessed because the receiver can be 'null' • test/engine/traza_11p_4r_test.dart:136:32 • unchecked_use_of_nullable_value
+  error • The property 'partidoId' can't be unconditionally accessed because the receiver can be 'null' • test/engine/traza_11p_4r_test.dart:137:37 • unchecked_use_of_nullable_value
+  error • The property 'partidoId' can't be unconditionally accessed because the receiver can be 'null' • test/engine/traza_11p_4r_test.dart:154:32 • unchecked_use_of_nullable_value
+  error • The property 'partidoId' can't be unconditionally accessed because the receiver can be 'null' • test/engine/traza_11p_4r_test.dart:155:37 • unchecked_use_of_nullable_value
+  error • The property 'partidoId' can't be unconditionally accessed because the receiver can be 'null' • test/engine/traza_11p_4r_test.dart:187:51 • unchecked_use_of_nullable_value
+  error • The property 'partidoId' can't be unconditionally accessed because the receiver can be 'null' • test/engine/traza_11p_4r_test.dart:189:26 • unchecked_use_of_nullable_value
+  error • The property 'partidoId' can't be unconditionally accessed because the receiver can be 'null' • test/engine/traza_11p_4r_test.dart:190:51 • unchecked_use_of_nullable_value
+  error • The property 'partidoId' can't be unconditionally accessed because the receiver can be 'null' • test/engine/traza_11p_4r_test.dart:191:26 • unchecked_use_of_nullable_value
+   info • Don't invoke 'print' in production code • test/engine/traza_11p_4r_test.dart:202:7 • avoid_print
+   info • Don't invoke 'print' in production code • test/engine/traza_11p_4r_test.dart:204:9 • avoid_print
+   info • Don't invoke 'print' in production code • test/engine/traza_11p_4r_test.dart:206:7 • avoid_print
+warning • Unused import: 'dart:io' • test_comodin_method.dart:1:8 • unused_import
+   info • Don't invoke 'print' in production code • test_comodin_method.dart:3:3 • avoid_print
+   info • The imported package 'collection' isn't a dependency of the importing package • test_debug.dart:1:8 • depend_on_referenced_packages
+warning • Unused import: 'package:collection/collection.dart' • test_debug.dart:1:8 • unused_import
+   info • Don't invoke 'print' in production code • test_debug.dart:3:3 • avoid_print
+warning • Unused import: 'package:derby2_flutter/application/usecases/generar_sorteo.dart' • test_fast.dart:1:8 • unused_import
+   info • Don't invoke 'print' in production code • test_fast.dart:2:15 • avoid_print
+   info • Unnecessary braces in a string interpolation • test_fast_odd.dart:37:22 • unnecessary_brace_in_string_interps
+   info • Don't invoke 'print' in production code • test_fast_odd.dart:55:3 • avoid_print
+   info • Don't invoke 'print' in production code • test_fast_odd.dart:64:3 • avoid_print
+   info • Don't invoke 'print' in production code • test_fast_odd.dart:68:5 • avoid_print
+   info • Don't invoke 'print' in production code • test_fast_odd.dart:72:3 • avoid_print
+  error • The named parameter 'anillo' is required, but there's no corresponding argument • test_fast_odd2.dart:27:20 • missing_required_argument
+  error • The named parameter 'numeroAnillo' isn't defined • test_fast_odd2.dart:27:105 • undefined_named_parameter
+   info • Unnecessary braces in a string interpolation • test_fast_odd2.dart:27:122 • unnecessary_brace_in_string_interps
+  error • The named parameter 'anillo' is required, but there's no corresponding argument • test_fast_odd2.dart:29:16 • missing_required_argument
+  error • The named parameter 'numeroAnillo' isn't defined • test_fast_odd2.dart:29:86 • undefined_named_parameter
+   info • Don't invoke 'print' in production code • test_fast_odd2.dart:35:3 • avoid_print
+   info • Don't invoke 'print' in production code • test_fast_odd2.dart:44:3 • avoid_print
+   info • Don't invoke 'print' in production code • test_fast_odd2.dart:48:6 • avoid_print
+   info • Don't invoke 'print' in production code • test_fast_odd2.dart:50:3 • avoid_print
+   info • Don't invoke 'print' in production code • test_pdf.dart:3:3 • avoid_print
+warning • Unused import: 'lib/engine/matchmaking/global_pool_matcher.dart' • test_pool_matcher_alone.dart:1:8 • unused_import
+

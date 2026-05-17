@@ -159,19 +159,9 @@ class GenerarSorteo {
       );
       rondasGeneradas.addAll(rondasPL);
 
-      // Si hay gallos base explícitos, los procesamos en la última ronda como dicta la tradición
-      if (tieneGallosBaseReales && _engine.config.rondasTotales > 1) {
-        final rondaBase = _engine.generarRonda(
-          partidos: partidos,
-          gallos: gallosEfectivos,
-          compadres: compadres,
-          rondasPrevias: rondasGeneradas,
-          rondaNumero: _engine.config.rondasTotales,
-          partidoDoblePreferidoId: partidoDoblePreferidoId,
-        );
-        rondasGeneradas.add(rondaBase);
-      }
-
+      // Eliminado el código que intentaba emparejar gallos base mediante generarRonda
+      // Los gallos base no entran al sorteo automático.
+      
       return rondasGeneradas;
     } catch (e) {
       // Fallback: flujo secuencial original
@@ -251,35 +241,37 @@ class GenerarSorteo {
 
       for (final e in ronda.enfrentamientos) {
         final idA = e.galloA.partidoId;
-        final idB = e.galloB.partidoId;
+        final idB = e.galloB?.partidoId;
 
         // Perspectiva del partido A
         resultadosPorPartido[idA]?.add(
           RondaResultado(
             numeroRonda: ronda.numero,
             anilloPropio: e.galloA.anillo,
-            anilloRival: e.galloB.anillo,
-            filaPartidoRival: filaMap[idB] ?? 0,
-            nombrePartidoRival: nombreMap[idB] ?? '?',
+            anilloRival: e.galloB?.anillo ?? 'PENDIENTE',
+            filaPartidoRival: idB != null ? (filaMap[idB] ?? 0) : 0,
+            nombrePartidoRival: idB != null ? (nombreMap[idB] ?? '?') : 'HUECO',
             pesoPropio: e.galloA.pesoGramos,
-            pesoRival: e.galloB.pesoGramos,
+            pesoRival: e.galloB?.pesoGramos ?? 0.0,
             esDoble: dobleIds.contains(idA),
           ),
         );
 
-        // Perspectiva del partido B
-        resultadosPorPartido[idB]?.add(
-          RondaResultado(
-            numeroRonda: ronda.numero,
-            anilloPropio: e.galloB.anillo,
-            anilloRival: e.galloA.anillo,
-            filaPartidoRival: filaMap[idA] ?? 0,
-            nombrePartidoRival: nombreMap[idA] ?? '?',
-            pesoPropio: e.galloB.pesoGramos,
-            pesoRival: e.galloA.pesoGramos,
-            esDoble: dobleIds.contains(idB),
-          ),
-        );
+        if (idB != null) {
+          // Perspectiva del partido B
+          resultadosPorPartido[idB]?.add(
+            RondaResultado(
+              numeroRonda: ronda.numero,
+              anilloPropio: e.galloB!.anillo,
+              anilloRival: e.galloA.anillo,
+              filaPartidoRival: filaMap[idA] ?? 0,
+              nombrePartidoRival: nombreMap[idA] ?? '?',
+              pesoPropio: e.galloB!.pesoGramos,
+              pesoRival: e.galloA.pesoGramos,
+              esDoble: dobleIds.contains(idB),
+            ),
+          );
+        }
       }
 
       // Bye: partidos que descansan esta ronda (legacy / fallback)

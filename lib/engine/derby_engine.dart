@@ -168,14 +168,16 @@ class DerbyEngine {
     for (final ronda in rondasPrevias) {
       for (final e in ronda.enfrentamientos) {
         gallosYaPeleados.add(e.galloA.id);
-        gallosYaPeleados.add(e.galloB.id);
+        if (e.galloB != null) gallosYaPeleados.add(e.galloB!.id);
 
-        final pA = e.galloA.partidoId;
-        final pB = e.galloB.partidoId;
-        final a = pA < pB ? pA : pB;
-        final b = pA < pB ? pB : pA;
-        conteoEnfrentamientos[(a, b)] =
-            (conteoEnfrentamientos[(a, b)] ?? 0) + 1;
+        if (e.galloB != null) {
+          final pA = e.galloA.partidoId;
+          final pB = e.galloB!.partidoId;
+          final a = pA < pB ? pA : pB;
+          final b = pA < pB ? pB : pA;
+          conteoEnfrentamientos[(a, b)] =
+              (conteoEnfrentamientos[(a, b)] ?? 0) + 1;
+        }
       }
     }
 
@@ -953,6 +955,29 @@ class DerbyEngine {
           '    ⚠️ No se emparejaron: ${resultado.partidosSinEmparejar}. Pasan a asignación manual.',
         );
       }
+      
+      // Crear huecos ("enfrentamientos en blanco") para los sobrantes, 
+      // de forma que la vista de asignación manual (Editor Manual) tenga 
+      // qué mostrar y dónde colocar a los oponentes.
+      for (final partidoSobrante in resultado.partidosSinEmparejar) {
+        final gallosCandidatos = gallosDisponibles
+            .where((g) => g.partidoId == partidoSobrante)
+            .toList();
+        if (gallosCandidatos.isNotEmpty) {
+          final galloA = gallosCandidatos.first; // Tomamos el primer gallo del partido sobrante
+          enfrentamientos.add(
+            Enfrentamiento(
+              id: enfrentamientos.length + 1,
+              rondaNumero: rondaNumero,
+              galloA: galloA,
+              galloB: null, // Listo para ser rellenado en UI
+              diferenciaPeso: 0,
+              esManual: true,
+            ),
+          );
+        }
+      }
+
       // Log de sobrantes para análisis
       print(
         '    Sobrantes tolerados (${resultado.partidosSinEmparejar.length}): '
@@ -980,7 +1005,7 @@ class DerbyEngine {
     required List<Compadres> compadres,
     int? numRondasOverride,
   }) {
-    final numRondasPL = numRondasOverride ?? config.rondasTotales;
+    int numRondasPL = numRondasOverride ?? config.rondasTotales;
     if (numRondasPL <= 0) return [];
 
     // Filter active partidos
@@ -1018,21 +1043,17 @@ class DerbyEngine {
 
     // Verificar que numRondasPL es suficiente para usar todos los gallos PL.
     // Si cada partido tiene más gallos PL que rondas disponibles, el optimizador
-    // global no puede distribuirlos correctamente (pondría varios por ronda).
+    // global ajustará automáticamente el número de rondas para acomodarlos.
     final maxGalosPorPartido = <int, int>{};
     for (final g in gallosPL) {
       maxGalosPorPartido[g.partidoId] =
           (maxGalosPorPartido[g.partidoId] ?? 0) + 1;
     }
     final maxPL = maxGalosPorPartido.values.fold(0, (a, b) => a > b ? a : b);
+    
+    // Auto-ajustar el número de rondas PL si hay más gallos de los esperados
     if (numRondasPL < maxPL) {
-      throw MatchingImposibleException(
-        rondaNumero: 1,
-        gallosDisponibles: gallosPL.length,
-        restriccionesActivas: 0,
-        detalle:
-            'numRondasPL=$numRondasPL < maxGalosPorPartido=$maxPL, usar flujo secuencial.',
-      );
+      numRondasPL = maxPL;
     }
 
     // Par: no necesita doble ni BYE
@@ -1123,10 +1144,12 @@ class DerbyEngine {
         '${byeId != null ? " (BYE P$byeId)" : ""}',
       );
       for (final e in enfrentamientos) {
+        final bStr = e.galloB != null
+            ? '${e.galloB!.anillo}(P${e.galloB!.partidoId},${e.galloB!.pesoGramos}g)'
+            : 'HUECO';
         print(
           '    ${e.galloA.anillo}(P${e.galloA.partidoId},${e.galloA.pesoGramos}g) vs '
-          '${e.galloB.anillo}(P${e.galloB.partidoId},${e.galloB.pesoGramos}g) '
-          'diff=${e.diferenciaPeso.toStringAsFixed(0)}g',
+          '$bStr diff=${e.diferenciaPeso.toStringAsFixed(0)}g',
         );
       }
     }
@@ -1165,20 +1188,26 @@ class DerbyEngine {
         case ResultadoPelea.ganoA:
           puntosExtra[e.galloA.partidoId] =
               (puntosExtra[e.galloA.partidoId] ?? 0) + config.puntosVictoria;
-          puntosExtra[e.galloB.partidoId] =
-              (puntosExtra[e.galloB.partidoId] ?? 0) + config.puntosDerrota;
+          if (e.galloB != null) {
+            puntosExtra[e.galloB!.partidoId] =
+                (puntosExtra[e.galloB!.partidoId] ?? 0) + config.puntosDerrota;
+          }
           break;
         case ResultadoPelea.ganoB:
-          puntosExtra[e.galloB.partidoId] =
-              (puntosExtra[e.galloB.partidoId] ?? 0) + config.puntosVictoria;
+          if (e.galloB != null) {
+            puntosExtra[e.galloB!.partidoId] =
+                (puntosExtra[e.galloB!.partidoId] ?? 0) + config.puntosVictoria;
+          }
           puntosExtra[e.galloA.partidoId] =
               (puntosExtra[e.galloA.partidoId] ?? 0) + config.puntosDerrota;
           break;
         case ResultadoPelea.empate:
           puntosExtra[e.galloA.partidoId] =
               (puntosExtra[e.galloA.partidoId] ?? 0) + config.puntosEmpate;
-          puntosExtra[e.galloB.partidoId] =
-              (puntosExtra[e.galloB.partidoId] ?? 0) + config.puntosEmpate;
+          if (e.galloB != null) {
+            puntosExtra[e.galloB!.partidoId] =
+                (puntosExtra[e.galloB!.partidoId] ?? 0) + config.puntosEmpate;
+          }
           break;
         case ResultadoPelea.noPeleada:
           break;

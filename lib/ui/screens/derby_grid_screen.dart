@@ -892,11 +892,11 @@ class _DerbyGridScreenState extends State<DerbyGridScreen> {
         for (var i = 0; i < r.enfrentamientos.length; i++) {
           final e = r.enfrentamientos[i];
           final pA = e.galloA.partidoId;
-          final pB = e.galloB.partidoId;
+          final pB = e.galloB?.partidoId;
           participantes.add(pA);
-          participantes.add(pB);
+          if (pB != null) participantes.add(pB);
           gallosUsadosGlobal.add(e.galloA.id);
-          gallosUsadosGlobal.add(e.galloB.id);
+          if (e.galloB != null) gallosUsadosGlobal.add(e.galloB!.id);
 
           final diff = e.diferenciaPeso;
           if (diff > maxDiffRonda) maxDiffRonda = diff;
@@ -904,19 +904,21 @@ class _DerbyGridScreenState extends State<DerbyGridScreen> {
           if (diff > maxDiffGlobal) maxDiffGlobal = diff;
           sumaDiffGlobal += diff;
           totalPeleas++;
-
-          final (int, int) keyPar = pA < pB ? (pA, pB) : (pB, pA);
-          enfrentamientosPorRonda[r.numero]!.add(keyPar);
+          
+          if (pB != null) {
+            final (int, int) keyPar = pA < pB ? (pA, pB) : (pB, pA);
+            enfrentamientosPorRonda[r.numero]!.add(keyPar);
+          }
 
           final marcaA = dobleIds.contains(pA) ? '🔄' : '  ';
-          final marcaB = dobleIds.contains(pB) ? '🔄' : '  ';
+          final marcaB = pB != null && dobleIds.contains(pB) ? '🔄' : '  ';
           final nA =
               '${e.galloA.anillo}(P$pA,${e.galloA.pesoGramos.toStringAsFixed(0)}g)';
-          final nB =
-              '${e.galloB.anillo}(P$pB,${e.galloB.pesoGramos.toStringAsFixed(0)}g)';
+          final nB = e.galloB != null ?
+              '${e.galloB!.anillo}(P$pB,${e.galloB!.pesoGramos.toStringAsFixed(0)}g)' : 'HUECO';
 
           print(
-            '│  ${(i + 1).toString().padLeft(2)} |$marcaA${nA.padRight(18)}| vs |$marcaB${nB.padRight(18)}| ${diff.toStringAsFixed(0)}g',
+            '│  ${(i + 1).toString().padLeft(2)} |$marcaA${nA.padRight(18)}| vs |$marcaB${nB.padRight(18)}| ${diff.toStringAsFixed(0)}g (Manual: ${e.esManual})',
           );
         }
 

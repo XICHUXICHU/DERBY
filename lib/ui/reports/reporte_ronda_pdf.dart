@@ -160,7 +160,9 @@ class ReporteRondaPdf {
     Map<int, domain.Partido> mapPartidos,
   ) {
     final pA = mapPartidos[e.galloA.partidoId]?.nombre ?? 'Desconocido';
-    final pB = mapPartidos[e.galloB.partidoId]?.nombre ?? 'Desconocido';
+    final pB = e.galloB != null 
+        ? (mapPartidos[e.galloB!.partidoId]?.nombre ?? 'Desconocido') 
+        : 'HUECO';
 
     return pw.TableRow(
       children: [
@@ -168,7 +170,10 @@ class ReporteRondaPdf {
         _cell(pA, cellStyle, align: pw.Alignment.centerLeft),
         _cellPeleador(e.galloA.anillo, e.galloA.pesoGramos, cellStyle, boldStyle),
         _cell('VS', boldStyle.copyWith(color: PdfColor.fromHex('#C62828')), align: pw.Alignment.center),
-        _cellPeleador(e.galloB.anillo, e.galloB.pesoGramos, cellStyle, boldStyle),
+        if (e.galloB != null)
+          _cellPeleador(e.galloB!.anillo, e.galloB!.pesoGramos, cellStyle, boldStyle)
+        else
+          _cellPeleador('Pendiente', 0.0, cellStyle, boldStyle),
         _cell(pB, cellStyle, align: pw.Alignment.centerLeft),
       ],
     );

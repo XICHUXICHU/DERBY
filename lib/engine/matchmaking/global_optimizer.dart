@@ -1,12 +1,13 @@
 import 'dart:math';
+import '../derby_engine.dart';
 import '../../domain/domain.dart';
 
 class ParGlobal {
   final Gallo galloA;
   final Gallo galloB;
-  ParGlobal(this.galloA, this.galloB);
+  double get diferencia => (galloA.pesoGramos - galloB.pesoGramos).abs().toDouble();
 
-  double get diferencia => (galloA.pesoGramos - galloB.pesoGramos).abs();
+  ParGlobal(this.galloA, this.galloB);
 }
 
 class ResultadoGlobal {
@@ -15,7 +16,7 @@ class ResultadoGlobal {
   final double maxDiferencia;
   final double sumaTotal;
 
-  const ResultadoGlobal({
+  ResultadoGlobal({
     required this.asignacion,
     required this.matchings,
     this.maxDiferencia = 0.0,
@@ -29,15 +30,15 @@ class GlobalMatchingOptimizer {
   final bool permitirRepeticiones;
 
   GlobalMatchingOptimizer({
-    required this.diferenciaMaxPeso,
     required this.compadres,
+    required this.diferenciaMaxPeso,
     this.permitirRepeticiones = false,
   });
 
-  bool _sonCompadres(int partidoId1, int partidoId2) {
-    if (partidoId1 == partidoId2) return true;
+  bool _sonCompadres(int partido1, int partido2) {
     for (var c in compadres) {
-      if (c.bloquea(partidoId1, partidoId2)) {
+      if ((c.partidoIdA == partido1 && c.partidoIdB == partido2) ||
+          (c.partidoIdA == partido2 && c.partidoIdB == partido1)) {
         return true;
       }
     }
@@ -52,15 +53,57 @@ class GlobalMatchingOptimizer {
     int? rondaDobleIndex,
     Map<int, int>? partidosBye,
   }) {
-    List<Gallo> pool = List.from(gallosPL);
-    pool.sort((a, b) => a.pesoGramos.compareTo(b.pesoGramos));
+    // 1. Agrupar gallos por partido y ordenarlos por peso (más ligero a más pesado)
+    Map<int, List<Gallo>> gallosPorPartido = {};
+    for (var g in gallosPL) {
+      gallosPorPartido.putIfAbsent(g.partidoId, () => []).add(g);
+    }
+    
+    for (var pid in gallosPorPartido.keys) {
+      gallosPorPartido[pid]!.sort((a, b) => a.pesoGramos.compareTo(b.pesoGramos));
+    }
 
-    List<ParGlobal> emparejamientos = _emparejarPoolGlobal(pool);
+    // 2. Distribuir a los gallos en las rondas basándose en su rango de peso
+    // Ronda 0 tendrá a los más ligeros, Ronda 1 a los medianos, etc.
+    Map<int, List<Gallo>> rondasPools = {for (int i = 0; i < numRondasPL; i++) i: []};
+    
+    for (var pid in partidosActivos) {
+      if (!gallosPorPartido.containsKey(pid)) continue;
+      var gl = gallosPorPartido[pid]!;
+      for (int i = 0; i < gl.length; i++) {
+        // En caso de que haya más gallos que rondas (raro), se cicla, pero normalmente i < numRondasPL
+        rondasPools[i % numRondasPL]!.add(gl[i]);
+      }
+    }
 
-    return _distribuirEnRondas(emparejamientos, numRondasPL);
+    // 3. En cada ronda, emparejar localmente a los gallos
+    Map<int, List<ParGlobal>> matchings = {};
+    double mD = 0.0;
+    double sT = 0.0;
+
+    for (int r = 0; r < numRondasPL; r++) {
+      var pool = rondasPools[r]!;
+      pool.sort((a, b) => a.pesoGramos.compareTo(b.pesoGramos));
+      
+      List<ParGlobal> rondaPares = _emparejarPoolLocal(pool);
+      matchings[r] = rondaPares;
+      
+      for (var p in rondaPares) {
+        sT += p.diferencia;
+        if (p.diferencia > mD) mD = p.diferencia;
+      }
+    }
+
+    // Retornamos el resultado
+    return ResultadoGlobal(
+      asignacion: {},
+      matchings: matchings,
+      maxDiferencia: mD,
+      sumaTotal: sT,
+    );
   }
 
-  List<ParGlobal> _emparejarPoolGlobal(List<Gallo> disponibles) {
+  List<ParGlobal> _emparejarPoolLocal(List<Gallo> disponibles) {
     List<ParGlobal> matchings = [];
     List<Gallo> tempPool = List.from(disponibles);
 
@@ -85,11 +128,15 @@ class GlobalMatchingOptimizer {
         tempPool.removeAt(bestIndex);
         tempPool.removeAt(0);
       } else {
+        // Si nadie cumple la condición (compadres o peso excesivo), tratar de forzar el emparejamiento con el siguiente
+        matchings.add(ParGlobal(gA, tempPool[1]));
+        tempPool.removeAt(1);
         tempPool.removeAt(0);
       }
     }
 
-    const int maxIter = 10000;
+    // Optimización local (Simulated Annealing simple) para mejorar la ronda
+    const int maxIter = 5000;
     Random rnd = Random(12345);
 
     for (int iter = 0; iter < maxIter; iter++) {
@@ -103,7 +150,7 @@ class GlobalMatchingOptimizer {
         }
       }
 
-      if (maxDiff <= 55) break;
+      if (maxDiffIdx == -1 || matchings.length < 2) break;
 
       int swapIdx = rnd.nextInt(matchings.length);
       if (swapIdx == maxDiffIdx) continue;
@@ -111,52 +158,40 @@ class GlobalMatchingOptimizer {
       ParGlobal p1 = matchings[maxDiffIdx];
       ParGlobal p2 = matchings[swapIdx];
 
-      ParGlobal pA = ParGlobal(p1.galloA, p2.galloA);
-      ParGlobal pB = ParGlobal(p1.galloB, p2.galloB);
+      double curDiff = p1.diferencia + p2.diferencia;
 
-      if (!_sonCompadres(pA.galloA.partidoId, pA.galloB.partidoId) &&
-          !_sonCompadres(pB.galloA.partidoId, pB.galloB.partidoId)) {
-        double newMax = pA.diferencia > pB.diferencia
-            ? pA.diferencia
-            : pB.diferencia;
-        double oldMax = p1.diferencia > p2.diferencia
-            ? p1.diferencia
-            : p2.diferencia;
+      // Try swap 1: A1-A2, B1-B2
+      double diff1 = (p1.galloA.pesoGramos - p2.galloA.pesoGramos).abs() +
+                     (p1.galloB.pesoGramos - p2.galloB.pesoGramos).abs();
+      // Try swap 2: A1-B2, B1-A2
+      double diff2 = (p1.galloA.pesoGramos - p2.galloB.pesoGramos).abs() +
+                     (p1.galloB.pesoGramos - p2.galloA.pesoGramos).abs();
 
-        if (newMax < oldMax) {
-          matchings[maxDiffIdx] = pA;
-          matchings[swapIdx] = pB;
+      bool comp1A = _sonCompadres(p1.galloA.partidoId, p2.galloA.partidoId);
+      bool comp1B = _sonCompadres(p1.galloB.partidoId, p2.galloB.partidoId);
+      bool comp2A = _sonCompadres(p1.galloA.partidoId, p2.galloB.partidoId);
+      bool comp2B = _sonCompadres(p1.galloB.partidoId, p2.galloA.partidoId);
+
+      bool swap1Valido = !comp1A && !comp1B;
+      bool swap2Valido = !comp2A && !comp2B;
+
+      if (swap1Valido && swap2Valido) {
+        if (diff1 < curDiff && diff1 <= diff2) {
+          matchings[maxDiffIdx] = ParGlobal(p1.galloA, p2.galloA);
+          matchings[swapIdx] = ParGlobal(p1.galloB, p2.galloB);
+        } else if (diff2 < curDiff) {
+          matchings[maxDiffIdx] = ParGlobal(p1.galloA, p2.galloB);
+          matchings[swapIdx] = ParGlobal(p1.galloB, p2.galloA);
         }
+      } else if (swap1Valido && diff1 < curDiff) {
+        matchings[maxDiffIdx] = ParGlobal(p1.galloA, p2.galloA);
+        matchings[swapIdx] = ParGlobal(p1.galloB, p2.galloB);
+      } else if (swap2Valido && diff2 < curDiff) {
+        matchings[maxDiffIdx] = ParGlobal(p1.galloA, p2.galloB);
+        matchings[swapIdx] = ParGlobal(p1.galloB, p2.galloA);
       }
     }
 
     return matchings;
-  }
-
-  ResultadoGlobal _distribuirEnRondas(List<ParGlobal> pares, int limit) {
-    Map<int, List<ParGlobal>> result = {};
-    Map<int, List<Gallo>> asignacionVacia = {};
-
-    double mD = 0.0;
-    double sT = 0.0;
-
-    for (int i = 0; i < pares.length; i++) {
-      int column = i % limit;
-      if (!result.containsKey(column)) {
-        result[column] = [];
-      }
-      result[column]!.add(pares[i]);
-
-      double d = pares[i].diferencia;
-      sT += d;
-      if (d > mD) mD = d;
-    }
-
-    return ResultadoGlobal(
-      asignacion: asignacionVacia,
-      matchings: result,
-      maxDiferencia: mD,
-      sumaTotal: sT,
-    );
   }
 }

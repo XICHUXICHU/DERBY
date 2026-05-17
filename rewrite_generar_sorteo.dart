@@ -57,7 +57,7 @@ void main() {
   }
   
   // Replace the implementation of ejecutarPrimerBloque
-  final regexPrimer = RegExp(r"List<Ronda> ejecutarPrimerBloque\(\{.*?return rondasGeneradas;\n  \}", RegExp.dotAll);
+  final regexPrimer = RegExp(r"List<Ronda> ejecutarPrimerBloque\(\{.*?return rondasGeneradas;\n  \}", dotAll: true);
   content = content.replaceFirst(regexPrimer, """List<Ronda> ejecutarPrimerBloque({
     required List<Partido> partidos,
     required List<Gallo> gallos,
@@ -77,7 +77,7 @@ void main() {
     return _ejecutarGlobal(partidos, gallosEfectivos, compadres, nRondas);
   }""");
 
-  final regexTodas = RegExp(r"List<Ronda> ejecutarTodas\(\{.*?return rondasGeneradas;\n  \}", RegExp.dotAll);
+  final regexTodas = RegExp(r"List<Ronda> ejecutarTodas\(\{.*?return rondasGeneradas;\n  \}", dotAll: true);
   content = content.replaceFirst(regexTodas, """List<Ronda> ejecutarTodas({
     required List<Partido> partidos,
     required List<Gallo> gallos,

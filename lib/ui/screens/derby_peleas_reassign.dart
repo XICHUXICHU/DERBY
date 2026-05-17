@@ -37,15 +37,16 @@ class _DerbyPeleasReassignScreenState extends State<DerbyPeleasReassignScreen> {
   }
 
   bool _esInvalido(Enfrentamiento e) {
-    if (e.galloA.partidoId == e.galloB.partidoId) return true;
+    if (e.galloB == null) return false; // si es huérfano en teoría no es "inválido", es incompleto
+    if (e.galloA.partidoId == e.galloB!.partidoId) return true;
     if (widget.diferenciaMaxPeso > 0 &&
-        e.galloA.diferenciaAbsoluta(e.galloB) > widget.diferenciaMaxPeso) {
+        e.galloA.diferenciaAbsoluta(e.galloB!) > widget.diferenciaMaxPeso) {
       return true;
     }
     for (var c in widget.compadres) {
       if ((c.partidoIdA == e.galloA.partidoId &&
-              c.partidoIdB == e.galloB.partidoId) ||
-          (c.partidoIdA == e.galloB.partidoId &&
+              c.partidoIdB == e.galloB!.partidoId) ||
+          (c.partidoIdA == e.galloB!.partidoId &&
               c.partidoIdB == e.galloA.partidoId)) {
         return true;
       }
@@ -54,46 +55,91 @@ class _DerbyPeleasReassignScreenState extends State<DerbyPeleasReassignScreen> {
   }
 
   void _intercambiarGallos(
-    int rondaIdx,
+    int rondaOrigenIdx,
+    int rondaDestinoIdx,
     int enfOrigenIdx,
     int enfDestinoIdx,
     bool moverGalloBOrigen,
     bool moverGalloBDestino,
   ) {
     setState(() {
-      final ronda = _rondas[rondaIdx];
-      final enfOrigen = ronda.enfrentamientos[enfOrigenIdx];
-      final enfDestino = ronda.enfrentamientos[enfDestinoIdx];
+      final rondaOrigen = _rondas[rondaOrigenIdx];
+      final rondaDestino = _rondas[rondaDestinoIdx];
+      
+      final enfOrigen = rondaOrigen.enfrentamientos[enfOrigenIdx];
+      final enfDestino = rondaDestino.enfrentamientos[enfDestinoIdx];
 
-      final gAOrigenNuevo = moverGalloBOrigen
-          ? enfOrigen.galloA
-          : (moverGalloBDestino ? enfDestino.galloB : enfDestino.galloA);
-      final gBOrigenNuevo = !moverGalloBOrigen
-          ? enfOrigen.galloB
-          : (moverGalloBDestino ? enfDestino.galloB : enfDestino.galloA);
+      final galloOrigen = moverGalloBOrigen ? enfOrigen.galloB : enfOrigen.galloA;
+      final galloDestino = moverGalloBDestino ? enfDestino.galloB : enfDestino.galloA;
 
-      final gADestNuevo = moverGalloBDestino
-          ? enfDestino.galloA
-          : (moverGalloBOrigen ? enfOrigen.galloB : enfOrigen.galloA);
-      final gBDestNuevo = !moverGalloBDestino
-          ? enfDestino.galloB
-          : (moverGalloBOrigen ? enfOrigen.galloB : enfOrigen.galloA);
+      Gallo? aOrig = moverGalloBOrigen ? enfOrigen.galloA : galloDestino;
+      Gallo? bOrig = !moverGalloBOrigen ? enfOrigen.galloB : galloDestino;
 
-      ronda.enfrentamientos[enfOrigenIdx] = Enfrentamiento(
-        id: enfOrigen.id,
-        rondaNumero: enfOrigen.rondaNumero,
-        galloA: gAOrigenNuevo,
-        galloB: gBOrigenNuevo,
-        diferenciaPeso: gAOrigenNuevo.diferenciaAbsoluta(gBOrigenNuevo),
-      );
+      Gallo? aDest = moverGalloBDestino ? enfDestino.galloA : galloOrigen;
+      Gallo? bDest = !moverGalloBDestino ? enfDestino.galloB : galloOrigen;
 
-      ronda.enfrentamientos[enfDestinoIdx] = Enfrentamiento(
-        id: enfDestino.id,
-        rondaNumero: enfDestino.rondaNumero,
-        galloA: gADestNuevo,
-        galloB: gBDestNuevo,
-        diferenciaPeso: gADestNuevo.diferenciaAbsoluta(gBDestNuevo),
-      );
+      // Normalizar: galloA no puede ser null en un enfrentamiento vivo
+      if (aOrig == null && bOrig != null) {
+        aOrig = bOrig;
+        bOrig = null;
+      }
+      if (aDest == null && bDest != null) {
+        aDest = bDest;
+        bDest = null;
+      }
+
+      // Reconstruir origen
+      final nuevaListaOrigen = <Enfrentamiento>[];
+      for (int i = 0; i < rondaOrigen.enfrentamientos.length; i++) {
+        if (i == enfOrigenIdx) {
+          if (aOrig != null) {
+            nuevaListaOrigen.add(Enfrentamiento(
+              id: enfOrigen.id,
+              rondaNumero: enfOrigen.rondaNumero,
+              galloA: aOrig,
+              galloB: bOrig,
+              diferenciaPeso: bOrig != null ? aOrig.diferenciaAbsoluta(bOrig) : 0,
+            ));
+          }
+        } else if (rondaOrigenIdx == rondaDestinoIdx && i == enfDestinoIdx) {
+          if (aDest != null) {
+            nuevaListaOrigen.add(Enfrentamiento(
+              id: enfDestino.id,
+              rondaNumero: enfDestino.rondaNumero,
+              galloA: aDest,
+              galloB: bDest,
+              diferenciaPeso: bDest != null ? aDest.diferenciaAbsoluta(bDest) : 0,
+            ));
+          }
+        } else {
+          nuevaListaOrigen.add(rondaOrigen.enfrentamientos[i]);
+        }
+      }
+
+      // Reconstruir destino sólo si es de otra ronda
+      if (rondaOrigenIdx != rondaDestinoIdx) {
+        final nuevaListaDestino = <Enfrentamiento>[];
+        for (int i = 0; i < rondaDestino.enfrentamientos.length; i++) {
+          if (i == enfDestinoIdx) {
+            if (aDest != null) {
+              nuevaListaDestino.add(Enfrentamiento(
+                id: enfDestino.id,
+                rondaNumero: enfDestino.rondaNumero,
+                galloA: aDest,
+                galloB: bDest,
+                diferenciaPeso: bDest != null ? aDest.diferenciaAbsoluta(bDest) : 0,
+              ));
+            }
+          } else {
+            nuevaListaDestino.add(rondaDestino.enfrentamientos[i]);
+          }
+        }
+        rondaDestino.enfrentamientos.clear();
+        rondaDestino.enfrentamientos.addAll(nuevaListaDestino);
+      }
+
+      rondaOrigen.enfrentamientos.clear();
+      rondaOrigen.enfrentamientos.addAll(nuevaListaOrigen);
     });
   }
 
@@ -114,7 +160,34 @@ class _DerbyPeleasReassignScreenState extends State<DerbyPeleasReassignScreen> {
               style: TextStyle(color: Colors.white),
             ),
             onPressed: () {
-              Navigator.pop(context, _rondas);
+              // Limpiar huecos nulos sin comprimir/eliminar rondas, 
+              // para mantener la distribución manual (1 pelea por ronda cuando sea posible)
+              final rondasLimpias = <Ronda>[];
+
+              for (final ronda in _rondas) {
+                // Eliminar enfrentamientos donde galloB es nulo (Huecos no llenados)
+                final peleasCompletas = ronda.enfrentamientos
+                    .where((e) => e.galloB != null)
+                    .toList();
+
+                final peleasFinales = <Enfrentamiento>[];
+                for (final p in peleasCompletas) {
+                  peleasFinales.add(
+                    p.conResultado(p.resultado ?? ResultadoPelea.noPeleada),
+                  );
+                }
+
+                rondasLimpias.add(Ronda(
+                  numero: ronda.numero, // Mantenemos su número original (no subimos ni comprimimos)
+                  enfrentamientos: peleasFinales,
+                  esRondaBase: ronda.esRondaBase,
+                  fechaCreacion: ronda.fechaCreacion,
+                  partidosBye: ronda.partidosBye,
+                  partidosDobles: ronda.partidosDobles,
+                ));
+              }
+
+              Navigator.pop(context, rondasLimpias);
             },
           ),
           const SizedBox(width: 16),
@@ -208,13 +281,49 @@ class _DerbyPeleasReassignScreenState extends State<DerbyPeleasReassignScreen> {
                               color: Colors.grey.shade400,
                             ),
                           ),
-                          _buildDraggableGallo(
-                            e.galloB,
-                            rondaIdx,
-                            enfIdx,
-                            true,
-                            cs,
-                          ),
+                          if (e.galloB != null)
+                            _buildDraggableGallo(
+                              e.galloB!,
+                              rondaIdx,
+                              enfIdx,
+                              true,
+                              cs,
+                            )
+                          else
+                            DragTarget<Map<String, dynamic>>(
+                              onWillAcceptWithDetails: (details) => true,
+                              onAcceptWithDetails: (details) {
+                                final data = details.data;
+                                _intercambiarGallos(
+                                  data['rondaIdx'],
+                                  rondaIdx,
+                                  data['enfIdx'],
+                                  enfIdx,
+                                  data['isGalloB'],
+                                  true, // target is Gallo B (empty)
+                                );
+                              },
+                              builder: (context, candidateData, rejectedData) {
+                                return Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                  margin: const EdgeInsets.symmetric(horizontal: 8),
+                                  decoration: BoxDecoration(
+                                    color: candidateData.isNotEmpty ? Colors.blue.withOpacity(0.2) : Colors.orange.withOpacity(0.1),
+                                    border: Border.all(
+                                      color: candidateData.isNotEmpty ? Colors.blue : Colors.orange,
+                                      style: BorderStyle.solid,
+                                      width: 2,
+                                    ),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: const Text(
+                                    "ESPACIO VACÍO\n(Arrastra aquí)",
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(color: Colors.orange, fontWeight: FontWeight.bold, fontSize: 12),
+                                  ),
+                                );
+                              },
+                            ),
                         ],
                       ),
                       const SizedBox(height: 12),
@@ -334,6 +443,7 @@ class _DerbyPeleasReassignScreenState extends State<DerbyPeleasReassignScreen> {
         final data = details.data;
         _intercambiarGallos(
           data['rondaIdx'],
+          rondaIdx,
           data['enfIdx'],
           enfIdx,
           data['isGalloB'],

@@ -86,7 +86,8 @@ class Enfrentamientos extends Table {
   IntColumn get id => integer().autoIncrement()();
   IntColumn get rondaId => integer().references(Rondas, #id)();
   IntColumn get galloAId => integer().references(Gallos, #id)();
-  IntColumn get galloBId => integer().references(Gallos, #id)();
+  IntColumn get galloBId => integer().nullable().references(Gallos, #id)();
   RealColumn get diferenciaPeso => real()();
   TextColumn get resultado => text().nullable()(); // ganoA, ganoB, empate, noPeleada
+  BoolColumn get esManual => boolean().withDefault(const Constant(false))();
 }

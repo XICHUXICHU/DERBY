@@ -41,8 +41,9 @@ class RondaRepository {
               EnfrentamientosCompanion.insert(
                 rondaId: rondaId,
                 galloAId: e.galloA.id,
-                galloBId: e.galloB.id,
+                galloBId: Value(e.galloB?.id),
                 diferenciaPeso: e.diferenciaPeso,
+                esManual: Value(e.esManual),
               ),
             );
       }
@@ -77,7 +78,7 @@ class RondaRepository {
   Future<void> registrarEnfrentamientoManual({
     required int rondaId,
     required int galloAId,
-    required int galloBId,
+    int? galloBId,
     required double diferenciaPeso,
   }) async {
     await _db
@@ -86,7 +87,7 @@ class RondaRepository {
           EnfrentamientosCompanion.insert(
             rondaId: rondaId,
             galloAId: galloAId,
-            galloBId: galloBId,
+            galloBId: Value(galloBId),
             diferenciaPeso: diferenciaPeso,
           ),
         );
@@ -130,11 +131,14 @@ class RondaRepository {
         final galloA = await (_db.select(
           _db.gallos,
         )..where((g) => g.id.equals(e.galloAId))).getSingleOrNull();
-        final galloB = await (_db.select(
-          _db.gallos,
-        )..where((g) => g.id.equals(e.galloBId))).getSingleOrNull();
 
-        if (galloA != null && galloB != null) {
+        final galloB = e.galloBId != null 
+          ? await (_db.select(
+              _db.gallos,
+            )..where((g) => g.id.equals(e.galloBId!))).getSingleOrNull()
+          : null;
+
+        if (galloA != null) {
           domEnfrentamientos.add(
             domain.Enfrentamiento(
               id: e.id,
@@ -148,7 +152,7 @@ class RondaRepository {
                 color: galloA.color,
                 observaciones: galloA.observaciones,
               ),
-              galloB: domain.Gallo(
+              galloB: galloB != null ? domain.Gallo(
                 id: galloB.id,
                 partidoId: galloB.partidoId,
                 anillo: galloB.anillo,
@@ -156,11 +160,12 @@ class RondaRepository {
                 esBase: galloB.esBase,
                 color: galloB.color,
                 observaciones: galloB.observaciones,
-              ),
+              ) : null,
               diferenciaPeso: e.diferenciaPeso,
               resultado: e.resultado != null
                   ? _parseResultado(e.resultado!)
                   : null,
+              esManual: e.esManual,
             ),
           );
         }
@@ -224,7 +229,7 @@ class RondaRepository {
       final enfrentamientos = await listarEnfrentamientos(ronda.id);
       for (final e in enfrentamientos) {
         galloIds.add(e.galloAId);
-        galloIds.add(e.galloBId);
+        if (e.galloBId != null) galloIds.add(e.galloBId!);
       }
     }
 
@@ -245,9 +250,13 @@ class RondaRepository {
         final galloA = await (_db.select(
           _db.gallos,
         )..where((g) => g.id.equals(e.galloAId))).getSingleOrNull();
-        final galloB = await (_db.select(
-          _db.gallos,
-        )..where((g) => g.id.equals(e.galloBId))).getSingleOrNull();
+        
+        final galloB = e.galloBId != null 
+          ? await (_db.select(
+              _db.gallos,
+            )..where((g) => g.id.equals(e.galloBId!))).getSingleOrNull()
+          : null;
+          
         if (galloA != null && galloB != null) {
           final a = galloA.partidoId < galloB.partidoId
               ? galloA.partidoId

@@ -5,21 +5,26 @@ class Enfrentamiento {
   final int id;
   final int rondaNumero;
   final Gallo galloA;
-  final Gallo galloB;
+  final Gallo? galloB;
   final double diferenciaPeso; // |pesoA - pesoB|
   final ResultadoPelea? resultado;
+  final bool esManual; // Identifica si la pelea fue armada a mano
 
   const Enfrentamiento({
     required this.id,
     required this.rondaNumero,
     required this.galloA,
-    required this.galloB,
+    this.galloB,
     required this.diferenciaPeso,
     this.resultado,
+    this.esManual = false,
   });
 
-  /// Verifica que los gallos no sean del mismo partido.
-  bool get esValido => galloA.partidoId != galloB.partidoId;
+  /// Verifica que los gallos no sean del mismo partido y existan.
+  bool get esValido {
+    if (galloB == null) return false;
+    return galloA.partidoId != galloB!.partidoId;
+  }
 
   Enfrentamiento conResultado(ResultadoPelea resultado) {
     return Enfrentamiento(
@@ -29,14 +34,15 @@ class Enfrentamiento {
       galloB: galloB,
       diferenciaPeso: diferenciaPeso,
       resultado: resultado,
+      esManual: esManual,
     );
   }
 
   @override
   String toString() =>
       'Enfrentamiento(ronda=$rondaNumero, '
-      '${galloA.anillo} vs ${galloB.anillo}, '
-      'diff=${diferenciaPeso}g, resultado=$resultado)';
+      '${galloA.anillo} vs ${galloB?.anillo ?? 'HUECO'}, '
+      'diff=${diferenciaPeso}g, resultado=$resultado, manual=$esManual)';
 }
 
 /// Resultado posible de una pelea.

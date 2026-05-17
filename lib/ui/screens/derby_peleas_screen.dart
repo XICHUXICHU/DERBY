@@ -183,10 +183,12 @@ class _DerbyPeleasScreenState extends State<DerbyPeleasScreen> {
 
       for (final e in ronda.enfrentamientos) {
         final pIdA = e.galloA.partidoId;
-        final pIdB = e.galloB.partidoId;
+        final pIdB = e.galloB?.partidoId;
 
         _enfrentamientoMap[(pIdA, ronda.numero)] = e.id;
-        _enfrentamientoMap[(pIdB, ronda.numero)] = e.id;
+        if (pIdB != null) {
+          _enfrentamientoMap[(pIdB, ronda.numero)] = e.id;
+        }
 
         _infoMap
             .putIfAbsent((pIdA, ronda.numero), () => [])
@@ -198,21 +200,25 @@ class _DerbyPeleasScreenState extends State<DerbyPeleasScreen> {
                 resultado: e.resultado,
                 galloPropio: e.galloA,
                 galloRival: e.galloB,
+                esManual: e.esManual,
               ),
             );
 
-        _infoMap
-            .putIfAbsent((pIdB, ronda.numero), () => [])
-            .add(
-              _EnfrentamientoInfo(
-                enfrentamientoId: e.id,
-                rivalPartidoId: pIdA,
-                esMiGalloA: false,
-                resultado: e.resultado,
-                galloPropio: e.galloB,
-                galloRival: e.galloA,
-              ),
-            );
+        if (pIdB != null) {
+          _infoMap
+              .putIfAbsent((pIdB, ronda.numero), () => [])
+              .add(
+                _EnfrentamientoInfo(
+                  enfrentamientoId: e.id,
+                  rivalPartidoId: pIdA,
+                  esMiGalloA: false,
+                  resultado: e.resultado,
+                  galloPropio: e.galloB!,
+                  galloRival: e.galloA,
+                  esManual: e.esManual,
+                ),
+              );
+        }
       }
 
       if (ronda.partidosBye.isNotEmpty) {
@@ -237,18 +243,18 @@ class _DerbyPeleasScreenState extends State<DerbyPeleasScreen> {
       for (final e in ronda.enfrentamientos) {
         if (e.resultado == null) continue;
         final pIdA = e.galloA.partidoId;
-        final pIdB = e.galloB.partidoId;
+        final pIdB = e.galloB?.partidoId;
 
         switch (e.resultado!) {
           case domain.ResultadoPelea.ganoA:
             puntosMap[pIdA] = (puntosMap[pIdA] ?? 0) + _puntosVictoria;
-            puntosMap[pIdB] = (puntosMap[pIdB] ?? 0) + _puntosDerrota;
+            if (pIdB != null) puntosMap[pIdB] = (puntosMap[pIdB] ?? 0) + _puntosDerrota;
           case domain.ResultadoPelea.ganoB:
-            puntosMap[pIdB] = (puntosMap[pIdB] ?? 0) + _puntosVictoria;
+            if (pIdB != null) puntosMap[pIdB] = (puntosMap[pIdB] ?? 0) + _puntosVictoria;
             puntosMap[pIdA] = (puntosMap[pIdA] ?? 0) + _puntosDerrota;
           case domain.ResultadoPelea.empate:
             puntosMap[pIdA] = (puntosMap[pIdA] ?? 0) + _puntosEmpate;
-            puntosMap[pIdB] = (puntosMap[pIdB] ?? 0) + _puntosEmpate;
+            if (pIdB != null) puntosMap[pIdB] = (puntosMap[pIdB] ?? 0) + _puntosEmpate;
           case domain.ResultadoPelea.noPeleada:
             break;
         }
@@ -334,13 +340,15 @@ class _DerbyPeleasScreenState extends State<DerbyPeleasScreen> {
 
     if (!mounted) return;
 
+    if (info.galloRival == null) return; // Ya bloqueado en UI pero por si acaso.
+    
     final resultado = await showDialog<domain.ResultadoPelea>(
       context: context,
       builder: (ctx) => _ResultadoDialog(
         partidoA: miPartido.nombre,
         partidoB: rivalPartido.nombre,
         galloA: info.galloPropio,
-        galloB: info.galloRival,
+        galloB: info.galloRival!,
         colorA: _colorMap[miPartido.id] ?? _kPartyColors[0],
         colorB: _colorMap[rivalPartido.id] ?? _kPartyColors[1],
       ),
@@ -384,17 +392,17 @@ class _DerbyPeleasScreenState extends State<DerbyPeleasScreen> {
       for (final e in ronda.enfrentamientos) {
         if (e.resultado == null) continue;
         final pIdA = e.galloA.partidoId;
-        final pIdB = e.galloB.partidoId;
+        final pIdB = e.galloB?.partidoId;
         switch (e.resultado!) {
           case domain.ResultadoPelea.ganoA:
             puntosMap[pIdA] = (puntosMap[pIdA] ?? 0) + _puntosVictoria;
-            puntosMap[pIdB] = (puntosMap[pIdB] ?? 0) + _puntosDerrota;
+            if (pIdB != null) puntosMap[pIdB] = (puntosMap[pIdB] ?? 0) + _puntosDerrota;
           case domain.ResultadoPelea.ganoB:
-            puntosMap[pIdB] = (puntosMap[pIdB] ?? 0) + _puntosVictoria;
+            if (pIdB != null) puntosMap[pIdB] = (puntosMap[pIdB] ?? 0) + _puntosVictoria;
             puntosMap[pIdA] = (puntosMap[pIdA] ?? 0) + _puntosDerrota;
           case domain.ResultadoPelea.empate:
             puntosMap[pIdA] = (puntosMap[pIdA] ?? 0) + _puntosEmpate;
-            puntosMap[pIdB] = (puntosMap[pIdB] ?? 0) + _puntosEmpate;
+            if (pIdB != null) puntosMap[pIdB] = (puntosMap[pIdB] ?? 0) + _puntosEmpate;
           case domain.ResultadoPelea.noPeleada:
             break;
         }
@@ -456,8 +464,10 @@ class _DerbyPeleasScreenState extends State<DerbyPeleasScreen> {
             e.resultado != domain.ResultadoPelea.noPeleada) {
           peleasHechas[e.galloA.partidoId] =
               (peleasHechas[e.galloA.partidoId] ?? 0) + 1;
-          peleasHechas[e.galloB.partidoId] =
-              (peleasHechas[e.galloB.partidoId] ?? 0) + 1;
+          if (e.galloB != null) {
+            peleasHechas[e.galloB!.partidoId] =
+                (peleasHechas[e.galloB!.partidoId] ?? 0) + 1;
+          }
         }
       }
     }
@@ -538,6 +548,101 @@ class _DerbyPeleasScreenState extends State<DerbyPeleasScreen> {
       _rondas.every((r) => r.completa);
 
   int get _siguienteRondaNumero => _rondas.length + 1;
+
+  // ── Resumen global del sorteo ─────────────────────────
+
+  ({int peleas, int gallos, double maxDiff, double sumaDiff, double promDiff})
+  get _resumenGlobal {
+    final todasLasPeleas = _rondas
+        .expand((r) => r.enfrentamientos)
+        .where((e) => e.galloB != null)
+        .toList();
+    final totalPeleas = todasLasPeleas.length;
+    final gallosUsados = <int>{};
+    double maxDiff = 0;
+    double sumaDiff = 0;
+    for (final e in todasLasPeleas) {
+      gallosUsados.add(e.galloA.id);
+      gallosUsados.add(e.galloB!.id);
+      if (e.diferenciaPeso > maxDiff) maxDiff = e.diferenciaPeso;
+      sumaDiff += e.diferenciaPeso;
+    }
+    final promDiff = totalPeleas > 0 ? sumaDiff / totalPeleas : 0.0;
+    return (
+      peleas: totalPeleas,
+      gallos: gallosUsados.length,
+      maxDiff: maxDiff,
+      sumaDiff: sumaDiff,
+      promDiff: promDiff,
+    );
+  }
+
+  Widget _buildResumenBar() {
+    final r = _resumenGlobal;
+    return Container(
+      decoration: const BoxDecoration(
+        color: Color(0xFF1A0A0E),
+        boxShadow: [
+          BoxShadow(
+            color: Color(0x33000000),
+            blurRadius: 8,
+            offset: Offset(0, -2),
+          ),
+        ],
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      child: SafeArea(
+        top: false,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceAround,
+          children: [
+            _resumenChip('Peleas', '${r.peleas}', Icons.sports_mma_rounded),
+            _resumenChip('Gallos', '${r.gallos}', Icons.pets_rounded),
+            _resumenChip(
+              'MaxDiff',
+              '${r.maxDiff.toStringAsFixed(0)}g',
+              Icons.arrow_upward_rounded,
+            ),
+            _resumenChip(
+              'SumaDiff',
+              '${r.sumaDiff.toStringAsFixed(0)}g',
+              Icons.compress_rounded,
+            ),
+            _resumenChip(
+              'PromDiff',
+              '${r.promDiff.toStringAsFixed(1)}g',
+              Icons.bar_chart_rounded,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _resumenChip(String label, String value, IconData icon) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, color: _kAccentLight, size: 14),
+        const SizedBox(height: 2),
+        Text(
+          value,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 13,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        Text(
+          label,
+          style: TextStyle(
+            color: Colors.white.withOpacity(0.55),
+            fontSize: 10,
+          ),
+        ),
+      ],
+    );
+  }
 
   // ── FAB: Generar Siguiente Ronda ───────────────────────
 
@@ -905,7 +1010,9 @@ class _DerbyPeleasScreenState extends State<DerbyPeleasScreen> {
                 ),
               ),
         ],
-        onSelected: (rondaNum) {
+        onSelected: (rondaNum) async {
+          await _recargarRondas();
+          if (!mounted) return;
           final sorteo = _construirSorteoResultado();
           if (sorteo == null) return;
           ReporteRondaSorteoPdf(
@@ -1049,7 +1156,7 @@ class _DerbyPeleasScreenState extends State<DerbyPeleasScreen> {
                                         for (final ronda in _rondas) {
                                           for (final e in ronda.enfrentamientos) {
                                             if (e.resultado == null || e.resultado == domain.ResultadoPelea.noPeleada) {
-                                              if (e.galloA.partidoId == p.id || e.galloB.partidoId == p.id) {
+                                              if (e.galloA.partidoId == p.id || (e.galloB?.partidoId == p.id)) {
                                                 await rondaRepository.eliminarEnfrentamiento(e.id);
                                               }
                                             }
@@ -1120,6 +1227,57 @@ class _DerbyPeleasScreenState extends State<DerbyPeleasScreen> {
     );
   }
 
+  /// Recarga solo las rondas desde la BD (sin spinner de carga completa).
+  /// Se llama antes de cada vista previa para garantizar datos frescos.
+  Future<void> _recargarRondas() async {
+    _rondas = await rondaRepository.listarHidratadasPorDerby(widget.derby.id);
+    _enfrentamientoMap.clear();
+    _infoMap.clear();
+    _byesPorRonda.clear();
+    _doblesPorRonda.clear();
+    for (final ronda in _rondas) {
+      if (ronda.partidosDobles.isNotEmpty) {
+        _doblesPorRonda[ronda.numero] = Set.from(ronda.partidosDobles);
+      }
+      for (final e in ronda.enfrentamientos) {
+        final pIdA = e.galloA.partidoId;
+        final pIdB = e.galloB?.partidoId;
+        _enfrentamientoMap[(pIdA, ronda.numero)] = e.id;
+        if (pIdB != null) {
+          _enfrentamientoMap[(pIdB, ronda.numero)] = e.id;
+        }
+        _infoMap
+            .putIfAbsent((pIdA, ronda.numero), () => [])
+            .add(_EnfrentamientoInfo(
+              enfrentamientoId: e.id,
+              rivalPartidoId: pIdB,
+              esMiGalloA: true,
+              resultado: e.resultado,
+              galloPropio: e.galloA,
+              galloRival: e.galloB,
+              esManual: e.esManual,
+            ));
+        if (pIdB != null) {
+          _infoMap
+              .putIfAbsent((pIdB, ronda.numero), () => [])
+              .add(_EnfrentamientoInfo(
+                enfrentamientoId: e.id,
+                rivalPartidoId: pIdA,
+                esMiGalloA: false,
+                resultado: e.resultado,
+                galloPropio: e.galloB!,
+                galloRival: e.galloA,
+                esManual: e.esManual,
+              ));
+        }
+      }
+      if (ronda.partidosBye.isNotEmpty) {
+        _byesPorRonda[ronda.numero] = Set.from(ronda.partidosBye);
+      }
+    }
+    if (mounted) setState(() {});
+  }
+
   /// Construye un [SorteoResultado] a partir de los datos actuales de la pantalla.
   domain.SorteoResultado? _construirSorteoResultado() {
     if (_rows.isEmpty || _rondas.isEmpty) return null;
@@ -1147,8 +1305,9 @@ class _DerbyPeleasScreenState extends State<DerbyPeleasScreen> {
 
   // ── Reporte de Resultados PDF ────────────────────────
 
-  void _mostrarReporteResultados() {
-    if (_rows.isEmpty || _rondas.isEmpty) return;
+  Future<void> _mostrarReporteResultados() async {
+    await _recargarRondas();
+    if (!mounted || _rows.isEmpty || _rondas.isEmpty) return;
 
     // Mapa partidoId → fila (1-based) en la tabla ordenada por puntos
     final filaMap = <int, int>{};
@@ -1170,7 +1329,7 @@ class _DerbyPeleasScreenState extends State<DerbyPeleasScreen> {
             }
             return PeleaInfoReporte(
               anilloPropio: info.galloPropio.anillo,
-              anilloRival: info.galloRival.anillo,
+              anilloRival: info.galloRival?.anillo ?? 'PENDIENTE',
               resultado: resultado,
               filaRival: filaMap[info.rivalPartidoId] ?? 0,
             );
@@ -1192,6 +1351,7 @@ class _DerbyPeleasScreenState extends State<DerbyPeleasScreen> {
     );
     reporte.vistaPrevia(context);
   }
+
 
   // ── Campe\u00f3n ────────────────────────────────────────────
 
@@ -1370,6 +1530,8 @@ class _DerbyPeleasScreenState extends State<DerbyPeleasScreen> {
               ],
             ),
       floatingActionButton: _buildFABSiguienteRonda(cs),
+      bottomNavigationBar:
+          (!_cargando && _rondas.isNotEmpty) ? _buildResumenBar() : null,
     );
   }
 
@@ -1949,6 +2111,30 @@ class _DerbyPeleasScreenState extends State<DerbyPeleasScreen> {
     );
   }
 
+  // ── Asignación Manual (Huecos) ────────────────────
+
+  void _mostrarSelectorGalloLibre(int enfrentamientoId, int rondaNum) {
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        return AlertDialog(
+          title: const Text('Asignar Gallo Manualmente'),
+          content: const Text(
+            'En esta pantalla, consultaremos todos los Gallos Huérfanos, '
+            'Gallos Base sobrantes y Comodines disponibles.\n\n'
+            '(Pantalla en construcción para el Demo)',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Cerrar'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   // ── Matchup line ──────────────────────────────────────
 
   Widget _buildMatchupLine(
@@ -1959,6 +2145,42 @@ class _DerbyPeleasScreenState extends State<DerbyPeleasScreen> {
     Color partyColor, {
     bool compact = false,
   }) {
+    // Si NO hay rival (galloB fue nulo o retirado), mostramos el hueco
+    if (info.galloRival == null || info.rivalPartidoId == null) {
+      return Container(
+        margin: const EdgeInsets.symmetric(vertical: 2.0),
+        decoration: BoxDecoration(
+          color: Colors.orange.withOpacity(0.2), // Tinte ámbar por hueco
+          border: Border.all(color: Colors.orange),
+          borderRadius: BorderRadius.circular(8.0),
+        ),
+        padding: const EdgeInsets.all(4.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.warning_amber_rounded, color: Colors.orange, size: 16),
+            const Text(
+              'PENDIENTE RIVAL',
+              style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.orange),
+            ),
+            const SizedBox(height: 4),
+            ElevatedButton.icon(
+              onPressed: () {
+                // Aquí abriremos el popup de emparejamiento manual
+                _mostrarSelectorGalloLibre(info.enfrentamientoId, rondaNum);
+              },
+              icon: const Icon(Icons.search, size: 14),
+              label: const Text('Asignar', style: TextStyle(fontSize: 10)),
+              style: ElevatedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 0),
+                minimumSize: const Size(60, 24),
+              ),
+            )
+          ],
+        ),
+      );
+    }
+
     final rivalColor = _colorMap[info.rivalPartidoId] ?? _kGrey;
     final hasResult = info.resultado != null;
     final label = hasResult ? _resultadoLabel(info) : '?';
@@ -1995,7 +2217,7 @@ class _DerbyPeleasScreenState extends State<DerbyPeleasScreen> {
             const SizedBox(width: 4),
             Flexible(
               child: _galloTag(
-                info.galloRival.anillo,
+                info.galloRival?.anillo ?? 'HUECO',
                 rivalColor,
                 compact: compact,
                 subtle: true,
@@ -2175,19 +2397,21 @@ class _DerbyPeleasScreenState extends State<DerbyPeleasScreen> {
 
 class _EnfrentamientoInfo {
   final int enfrentamientoId;
-  final int rivalPartidoId;
+  final int? rivalPartidoId; // Puede ser null si es huérfano
   final bool esMiGalloA;
   final domain.ResultadoPelea? resultado;
   final domain.Gallo galloPropio;
-  final domain.Gallo galloRival;
+  final domain.Gallo? galloRival; // Puede ser null si falta el galloB
+  final bool esManual; // Pelea armada manualmente
 
   const _EnfrentamientoInfo({
     required this.enfrentamientoId,
-    required this.rivalPartidoId,
+    this.rivalPartidoId,
     required this.esMiGalloA,
     required this.resultado,
     required this.galloPropio,
-    required this.galloRival,
+    this.galloRival,
+    this.esManual = false,
   });
 }
 

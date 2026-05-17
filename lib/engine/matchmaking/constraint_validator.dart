@@ -25,23 +25,25 @@ class ConstraintValidator {
     final gallosUsados = <int>{};
 
     for (final e in enfrentamientos) {
-      // 1) Gallos del mismo partido
-      if (e.galloA.partidoId == e.galloB.partidoId) {
-        errores.add(
-          'Enfrentamiento ${e.id}: gallos ${e.galloA.anillo} y '
-          '${e.galloB.anillo} son del MISMO partido (${e.galloA.partidoId}).',
-        );
-      }
+      if (e.galloB != null) {
+        // 1) Gallos del mismo partido
+        if (e.galloA.partidoId == e.galloB!.partidoId) {
+          errores.add(
+            'Enfrentamiento ${e.id}: gallos ${e.galloA.anillo} y '
+            '${e.galloB!.anillo} son del MISMO partido (${e.galloA.partidoId}).',
+          );
+        }
 
-      // 2) Compadres
-      final pA = e.galloA.partidoId;
-      final pB = e.galloB.partidoId;
-      final a = pA < pB ? pA : pB;
-      final b = pA < pB ? pB : pA;
-      if (_compadresSet.contains((a, b))) {
-        errores.add(
-          'Enfrentamiento ${e.id}: partidos $pA y $pB son COMPADRES.',
-        );
+        // 2) Compadres
+        final pA = e.galloA.partidoId;
+        final pB = e.galloB!.partidoId;
+        final a = pA < pB ? pA : pB;
+        final b = pA < pB ? pB : pA;
+        if (_compadresSet.contains((a, b))) {
+          errores.add(
+            'Enfrentamiento ${e.id}: partidos $pA y $pB son COMPADRES.',
+          );
+        }
       }
 
       // 3) Gallo ya usado en esta ronda
@@ -51,14 +53,16 @@ class ConstraintValidator {
           'aparece MÁS DE UNA VEZ en la ronda.',
         );
       }
-      if (gallosUsados.contains(e.galloB.id)) {
-        errores.add(
-          'Gallo ${e.galloB.anillo} (id=${e.galloB.id}) '
-          'aparece MÁS DE UNA VEZ en la ronda.',
-        );
+      if (e.galloB != null) {
+        if (gallosUsados.contains(e.galloB!.id)) {
+          errores.add(
+            'Gallo ${e.galloB!.anillo} (id=${e.galloB!.id}) '
+            'aparece MÁS DE UNA VEZ en la ronda.',
+          );
+        }
+        gallosUsados.add(e.galloB!.id);
       }
       gallosUsados.add(e.galloA.id);
-      gallosUsados.add(e.galloB.id);
     }
 
     return errores;
@@ -98,8 +102,8 @@ class ConstraintValidator {
       if (gallosYaPeleados.contains(e.galloA.id)) {
         errores.add('Gallo ${e.galloA.anillo} (id=${e.galloA.id}) ya peleó.');
       }
-      if (gallosYaPeleados.contains(e.galloB.id)) {
-        errores.add('Gallo ${e.galloB.anillo} (id=${e.galloB.id}) ya peleó.');
+      if (e.galloB != null && gallosYaPeleados.contains(e.galloB!.id)) {
+        errores.add('Gallo ${e.galloB!.anillo} (id=${e.galloB!.id}) ya peleó.');
       }
     }
     return errores;
@@ -116,7 +120,8 @@ class ConstraintValidator {
   }) {
     final errores = <String>[];
     for (final e in enfrentamientos) {
-      for (final g in [e.galloA, e.galloB]) {
+      final gallosList = e.galloB != null ? [e.galloA, e.galloB!] : [e.galloA];
+      for (final g in gallosList) {
         if (!esRondaBase && g.esBase) {
           errores.add(
             'Gallo base ${g.anillo}: solo en la ronda base se permiten '
@@ -163,7 +168,7 @@ class ConstraintValidator {
       final apariciones = enfrentamientos
           .where(
             (e) =>
-                e.galloA.partidoId == dobleId || e.galloB.partidoId == dobleId,
+                e.galloA.partidoId == dobleId || (e.galloB?.partidoId == dobleId),
           )
           .length;
       if (apariciones != 2) {
@@ -177,7 +182,7 @@ class ConstraintValidator {
       final gallosDelDoble = <int>{};
       for (final e in enfrentamientos) {
         if (e.galloA.partidoId == dobleId) gallosDelDoble.add(e.galloA.id);
-        if (e.galloB.partidoId == dobleId) gallosDelDoble.add(e.galloB.id);
+        if (e.galloB?.partidoId == dobleId) gallosDelDoble.add(e.galloB!.id);
       }
       if (gallosDelDoble.length != 2) {
         errores.add(

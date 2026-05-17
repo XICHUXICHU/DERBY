@@ -18,8 +18,8 @@ class GlobalPoolMatcher {
 
     bool sonCompadres(int p1, int p2) {
       for (var c in compadres) {
-        if ((c.partidoId1 == p1 && c.partidoId2 == p2) ||
-            (c.partidoId1 == p2 && c.partidoId2 == p1)) {
+        if ((c.partidoIdA == p1 && c.partidoIdB == p2) ||
+            (c.partidoIdA == p2 && c.partidoIdB == p1)) {
           return true;
         }
       }

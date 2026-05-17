@@ -2912,9 +2912,9 @@ class $EnfrentamientosTable extends Enfrentamientos
   late final GeneratedColumn<int> galloBId = GeneratedColumn<int>(
     'gallo_b_id',
     aliasedName,
-    false,
+    true,
     type: DriftSqlType.int,
-    requiredDuringInsert: true,
+    requiredDuringInsert: false,
     defaultConstraints: GeneratedColumn.constraintIsAlways(
       'REFERENCES gallos (id)',
     ),
@@ -2941,6 +2941,21 @@ class $EnfrentamientosTable extends Enfrentamientos
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _esManualMeta = const VerificationMeta(
+    'esManual',
+  );
+  @override
+  late final GeneratedColumn<bool> esManual = GeneratedColumn<bool>(
+    'es_manual',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("es_manual" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -2949,6 +2964,7 @@ class $EnfrentamientosTable extends Enfrentamientos
     galloBId,
     diferenciaPeso,
     resultado,
+    esManual,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -2986,8 +3002,6 @@ class $EnfrentamientosTable extends Enfrentamientos
         _galloBIdMeta,
         galloBId.isAcceptableOrUnknown(data['gallo_b_id']!, _galloBIdMeta),
       );
-    } else if (isInserting) {
-      context.missing(_galloBIdMeta);
     }
     if (data.containsKey('diferencia_peso')) {
       context.handle(
@@ -3004,6 +3018,12 @@ class $EnfrentamientosTable extends Enfrentamientos
       context.handle(
         _resultadoMeta,
         resultado.isAcceptableOrUnknown(data['resultado']!, _resultadoMeta),
+      );
+    }
+    if (data.containsKey('es_manual')) {
+      context.handle(
+        _esManualMeta,
+        esManual.isAcceptableOrUnknown(data['es_manual']!, _esManualMeta),
       );
     }
     return context;
@@ -3030,7 +3050,7 @@ class $EnfrentamientosTable extends Enfrentamientos
       galloBId: attachedDatabase.typeMapping.read(
         DriftSqlType.int,
         data['${effectivePrefix}gallo_b_id'],
-      )!,
+      ),
       diferenciaPeso: attachedDatabase.typeMapping.read(
         DriftSqlType.double,
         data['${effectivePrefix}diferencia_peso'],
@@ -3039,6 +3059,10 @@ class $EnfrentamientosTable extends Enfrentamientos
         DriftSqlType.string,
         data['${effectivePrefix}resultado'],
       ),
+      esManual: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}es_manual'],
+      )!,
     );
   }
 
@@ -3052,16 +3076,18 @@ class Enfrentamiento extends DataClass implements Insertable<Enfrentamiento> {
   final int id;
   final int rondaId;
   final int galloAId;
-  final int galloBId;
+  final int? galloBId;
   final double diferenciaPeso;
   final String? resultado;
+  final bool esManual;
   const Enfrentamiento({
     required this.id,
     required this.rondaId,
     required this.galloAId,
-    required this.galloBId,
+    this.galloBId,
     required this.diferenciaPeso,
     this.resultado,
+    required this.esManual,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -3069,11 +3095,14 @@ class Enfrentamiento extends DataClass implements Insertable<Enfrentamiento> {
     map['id'] = Variable<int>(id);
     map['ronda_id'] = Variable<int>(rondaId);
     map['gallo_a_id'] = Variable<int>(galloAId);
-    map['gallo_b_id'] = Variable<int>(galloBId);
+    if (!nullToAbsent || galloBId != null) {
+      map['gallo_b_id'] = Variable<int>(galloBId);
+    }
     map['diferencia_peso'] = Variable<double>(diferenciaPeso);
     if (!nullToAbsent || resultado != null) {
       map['resultado'] = Variable<String>(resultado);
     }
+    map['es_manual'] = Variable<bool>(esManual);
     return map;
   }
 
@@ -3082,11 +3111,14 @@ class Enfrentamiento extends DataClass implements Insertable<Enfrentamiento> {
       id: Value(id),
       rondaId: Value(rondaId),
       galloAId: Value(galloAId),
-      galloBId: Value(galloBId),
+      galloBId: galloBId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(galloBId),
       diferenciaPeso: Value(diferenciaPeso),
       resultado: resultado == null && nullToAbsent
           ? const Value.absent()
           : Value(resultado),
+      esManual: Value(esManual),
     );
   }
 
@@ -3099,9 +3131,10 @@ class Enfrentamiento extends DataClass implements Insertable<Enfrentamiento> {
       id: serializer.fromJson<int>(json['id']),
       rondaId: serializer.fromJson<int>(json['rondaId']),
       galloAId: serializer.fromJson<int>(json['galloAId']),
-      galloBId: serializer.fromJson<int>(json['galloBId']),
+      galloBId: serializer.fromJson<int?>(json['galloBId']),
       diferenciaPeso: serializer.fromJson<double>(json['diferenciaPeso']),
       resultado: serializer.fromJson<String?>(json['resultado']),
+      esManual: serializer.fromJson<bool>(json['esManual']),
     );
   }
   @override
@@ -3111,9 +3144,10 @@ class Enfrentamiento extends DataClass implements Insertable<Enfrentamiento> {
       'id': serializer.toJson<int>(id),
       'rondaId': serializer.toJson<int>(rondaId),
       'galloAId': serializer.toJson<int>(galloAId),
-      'galloBId': serializer.toJson<int>(galloBId),
+      'galloBId': serializer.toJson<int?>(galloBId),
       'diferenciaPeso': serializer.toJson<double>(diferenciaPeso),
       'resultado': serializer.toJson<String?>(resultado),
+      'esManual': serializer.toJson<bool>(esManual),
     };
   }
 
@@ -3121,16 +3155,18 @@ class Enfrentamiento extends DataClass implements Insertable<Enfrentamiento> {
     int? id,
     int? rondaId,
     int? galloAId,
-    int? galloBId,
+    Value<int?> galloBId = const Value.absent(),
     double? diferenciaPeso,
     Value<String?> resultado = const Value.absent(),
+    bool? esManual,
   }) => Enfrentamiento(
     id: id ?? this.id,
     rondaId: rondaId ?? this.rondaId,
     galloAId: galloAId ?? this.galloAId,
-    galloBId: galloBId ?? this.galloBId,
+    galloBId: galloBId.present ? galloBId.value : this.galloBId,
     diferenciaPeso: diferenciaPeso ?? this.diferenciaPeso,
     resultado: resultado.present ? resultado.value : this.resultado,
+    esManual: esManual ?? this.esManual,
   );
   Enfrentamiento copyWithCompanion(EnfrentamientosCompanion data) {
     return Enfrentamiento(
@@ -3142,6 +3178,7 @@ class Enfrentamiento extends DataClass implements Insertable<Enfrentamiento> {
           ? data.diferenciaPeso.value
           : this.diferenciaPeso,
       resultado: data.resultado.present ? data.resultado.value : this.resultado,
+      esManual: data.esManual.present ? data.esManual.value : this.esManual,
     );
   }
 
@@ -3153,14 +3190,22 @@ class Enfrentamiento extends DataClass implements Insertable<Enfrentamiento> {
           ..write('galloAId: $galloAId, ')
           ..write('galloBId: $galloBId, ')
           ..write('diferenciaPeso: $diferenciaPeso, ')
-          ..write('resultado: $resultado')
+          ..write('resultado: $resultado, ')
+          ..write('esManual: $esManual')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode =>
-      Object.hash(id, rondaId, galloAId, galloBId, diferenciaPeso, resultado);
+  int get hashCode => Object.hash(
+    id,
+    rondaId,
+    galloAId,
+    galloBId,
+    diferenciaPeso,
+    resultado,
+    esManual,
+  );
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -3170,16 +3215,18 @@ class Enfrentamiento extends DataClass implements Insertable<Enfrentamiento> {
           other.galloAId == this.galloAId &&
           other.galloBId == this.galloBId &&
           other.diferenciaPeso == this.diferenciaPeso &&
-          other.resultado == this.resultado);
+          other.resultado == this.resultado &&
+          other.esManual == this.esManual);
 }
 
 class EnfrentamientosCompanion extends UpdateCompanion<Enfrentamiento> {
   final Value<int> id;
   final Value<int> rondaId;
   final Value<int> galloAId;
-  final Value<int> galloBId;
+  final Value<int?> galloBId;
   final Value<double> diferenciaPeso;
   final Value<String?> resultado;
+  final Value<bool> esManual;
   const EnfrentamientosCompanion({
     this.id = const Value.absent(),
     this.rondaId = const Value.absent(),
@@ -3187,17 +3234,18 @@ class EnfrentamientosCompanion extends UpdateCompanion<Enfrentamiento> {
     this.galloBId = const Value.absent(),
     this.diferenciaPeso = const Value.absent(),
     this.resultado = const Value.absent(),
+    this.esManual = const Value.absent(),
   });
   EnfrentamientosCompanion.insert({
     this.id = const Value.absent(),
     required int rondaId,
     required int galloAId,
-    required int galloBId,
+    this.galloBId = const Value.absent(),
     required double diferenciaPeso,
     this.resultado = const Value.absent(),
+    this.esManual = const Value.absent(),
   }) : rondaId = Value(rondaId),
        galloAId = Value(galloAId),
-       galloBId = Value(galloBId),
        diferenciaPeso = Value(diferenciaPeso);
   static Insertable<Enfrentamiento> custom({
     Expression<int>? id,
@@ -3206,6 +3254,7 @@ class EnfrentamientosCompanion extends UpdateCompanion<Enfrentamiento> {
     Expression<int>? galloBId,
     Expression<double>? diferenciaPeso,
     Expression<String>? resultado,
+    Expression<bool>? esManual,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -3214,6 +3263,7 @@ class EnfrentamientosCompanion extends UpdateCompanion<Enfrentamiento> {
       if (galloBId != null) 'gallo_b_id': galloBId,
       if (diferenciaPeso != null) 'diferencia_peso': diferenciaPeso,
       if (resultado != null) 'resultado': resultado,
+      if (esManual != null) 'es_manual': esManual,
     });
   }
 
@@ -3221,9 +3271,10 @@ class EnfrentamientosCompanion extends UpdateCompanion<Enfrentamiento> {
     Value<int>? id,
     Value<int>? rondaId,
     Value<int>? galloAId,
-    Value<int>? galloBId,
+    Value<int?>? galloBId,
     Value<double>? diferenciaPeso,
     Value<String?>? resultado,
+    Value<bool>? esManual,
   }) {
     return EnfrentamientosCompanion(
       id: id ?? this.id,
@@ -3232,6 +3283,7 @@ class EnfrentamientosCompanion extends UpdateCompanion<Enfrentamiento> {
       galloBId: galloBId ?? this.galloBId,
       diferenciaPeso: diferenciaPeso ?? this.diferenciaPeso,
       resultado: resultado ?? this.resultado,
+      esManual: esManual ?? this.esManual,
     );
   }
 
@@ -3256,6 +3308,9 @@ class EnfrentamientosCompanion extends UpdateCompanion<Enfrentamiento> {
     if (resultado.present) {
       map['resultado'] = Variable<String>(resultado.value);
     }
+    if (esManual.present) {
+      map['es_manual'] = Variable<bool>(esManual.value);
+    }
     return map;
   }
 
@@ -3267,7 +3322,8 @@ class EnfrentamientosCompanion extends UpdateCompanion<Enfrentamiento> {
           ..write('galloAId: $galloAId, ')
           ..write('galloBId: $galloBId, ')
           ..write('diferenciaPeso: $diferenciaPeso, ')
-          ..write('resultado: $resultado')
+          ..write('resultado: $resultado, ')
+          ..write('esManual: $esManual')
           ..write(')'))
         .toString();
   }
@@ -5821,18 +5877,20 @@ typedef $$EnfrentamientosTableCreateCompanionBuilder =
       Value<int> id,
       required int rondaId,
       required int galloAId,
-      required int galloBId,
+      Value<int?> galloBId,
       required double diferenciaPeso,
       Value<String?> resultado,
+      Value<bool> esManual,
     });
 typedef $$EnfrentamientosTableUpdateCompanionBuilder =
     EnfrentamientosCompanion Function({
       Value<int> id,
       Value<int> rondaId,
       Value<int> galloAId,
-      Value<int> galloBId,
+      Value<int?> galloBId,
       Value<double> diferenciaPeso,
       Value<String?> resultado,
+      Value<bool> esManual,
     });
 
 final class $$EnfrentamientosTableReferences
@@ -5884,9 +5942,9 @@ final class $$EnfrentamientosTableReferences
     $_aliasNameGenerator(db.enfrentamientos.galloBId, db.gallos.id),
   );
 
-  $$GallosTableProcessedTableManager get galloBId {
-    final $_column = $_itemColumn<int>('gallo_b_id')!;
-
+  $$GallosTableProcessedTableManager? get galloBId {
+    final $_column = $_itemColumn<int>('gallo_b_id');
+    if ($_column == null) return null;
     final manager = $$GallosTableTableManager(
       $_db,
       $_db.gallos,
@@ -5920,6 +5978,11 @@ class $$EnfrentamientosTableFilterComposer
 
   ColumnFilters<String> get resultado => $composableBuilder(
     column: $table.resultado,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get esManual => $composableBuilder(
+    column: $table.esManual,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -6017,6 +6080,11 @@ class $$EnfrentamientosTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<bool> get esManual => $composableBuilder(
+    column: $table.esManual,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   $$RondasTableOrderingComposer get rondaId {
     final $$RondasTableOrderingComposer composer = $composerBuilder(
       composer: this,
@@ -6106,6 +6174,9 @@ class $$EnfrentamientosTableAnnotationComposer
 
   GeneratedColumn<String> get resultado =>
       $composableBuilder(column: $table.resultado, builder: (column) => column);
+
+  GeneratedColumn<bool> get esManual =>
+      $composableBuilder(column: $table.esManual, builder: (column) => column);
 
   $$RondasTableAnnotationComposer get rondaId {
     final $$RondasTableAnnotationComposer composer = $composerBuilder(
@@ -6210,9 +6281,10 @@ class $$EnfrentamientosTableTableManager
                 Value<int> id = const Value.absent(),
                 Value<int> rondaId = const Value.absent(),
                 Value<int> galloAId = const Value.absent(),
-                Value<int> galloBId = const Value.absent(),
+                Value<int?> galloBId = const Value.absent(),
                 Value<double> diferenciaPeso = const Value.absent(),
                 Value<String?> resultado = const Value.absent(),
+                Value<bool> esManual = const Value.absent(),
               }) => EnfrentamientosCompanion(
                 id: id,
                 rondaId: rondaId,
@@ -6220,15 +6292,17 @@ class $$EnfrentamientosTableTableManager
                 galloBId: galloBId,
                 diferenciaPeso: diferenciaPeso,
                 resultado: resultado,
+                esManual: esManual,
               ),
           createCompanionCallback:
               ({
                 Value<int> id = const Value.absent(),
                 required int rondaId,
                 required int galloAId,
-                required int galloBId,
+                Value<int?> galloBId = const Value.absent(),
                 required double diferenciaPeso,
                 Value<String?> resultado = const Value.absent(),
+                Value<bool> esManual = const Value.absent(),
               }) => EnfrentamientosCompanion.insert(
                 id: id,
                 rondaId: rondaId,
@@ -6236,6 +6310,7 @@ class $$EnfrentamientosTableTableManager
                 galloBId: galloBId,
                 diferenciaPeso: diferenciaPeso,
                 resultado: resultado,
+                esManual: esManual,
               ),
           withReferenceMapper: (p0) => p0
               .map(
