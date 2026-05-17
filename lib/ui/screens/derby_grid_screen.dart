@@ -90,6 +90,10 @@ class DerbyGridScreen extends StatefulWidget {
 class _DerbyGridScreenState extends State<DerbyGridScreen> {
   late Derby _derbyActual = widget.derby;
   List<_PartidoRow> _rows = [];
+
+  /// Partidos que se muestran en la grilla (excluye comodines del organizador).
+  List<_PartidoRow> get _rowsVisibles =>
+      _rows.where((r) => !r.partido.esComodin).toList();
   bool _cargando = true;
 
   /// Mapa: partidoId → set de ids de sus compadres.
@@ -388,8 +392,8 @@ class _DerbyGridScreenState extends State<DerbyGridScreen> {
       final Map<int, List<Partido>> compadresPorPartido = {};
       final Map<int, int> partidoFila = {};
 
-      for (int i = 0; i < _rows.length; i++) {
-        partidoFila[_rows[i].partido.id] = i + 1;
+      for (int i = 0; i < _rowsVisibles.length; i++) {
+        partidoFila[_rowsVisibles[i].partido.id] = i + 1;
       }
 
       for (final r in targetRows) {
@@ -1274,6 +1278,9 @@ class _DerbyGridScreenState extends State<DerbyGridScreen> {
                       gallos: domGallos,
                       compadres: domCompadres,
                       diferenciaMaxPeso: config.diferenciaMaxPeso,
+                      galloRepository: galloRepository,
+                      partidoRepository: partidoRepository,
+                      derbyId: _derbyActual.id,
                     ),
                   ),
                 );
@@ -1426,8 +1433,8 @@ class _DerbyGridScreenState extends State<DerbyGridScreen> {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final pagados = _rows.where((r) => r.partido.depositoPagado).length;
-    final total = _rows.length;
+    final pagados = _rowsVisibles.where((r) => r.partido.depositoPagado).length;
+    final total = _rowsVisibles.length;
 
     return Scaffold(
       appBar: AppBar(
@@ -1632,7 +1639,7 @@ class _DerbyGridScreenState extends State<DerbyGridScreen> {
             // Filas scrolleables vertical
             Expanded(
               child: ListView.builder(
-                itemCount: _rows.length,
+                itemCount: _rowsVisibles.length,
                 itemBuilder: (_, i) => _buildRow(i),
               ),
             ),
@@ -1694,7 +1701,7 @@ class _DerbyGridScreenState extends State<DerbyGridScreen> {
   // ── Fila de datos ──────────────────────────────────────
 
   Widget _buildRow(int index) {
-    final data = _rows[index];
+    final data = _rowsVisibles[index];
     final p = data.partido;
     final partyColor = _kPartyColors[index % _kPartyColors.length];
     final isOdd = index.isOdd;
@@ -1775,7 +1782,7 @@ class _DerbyGridScreenState extends State<DerbyGridScreen> {
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 12),
               child: Text(
-                'Total: ${_rows.length} partidos',
+                'Total: ${_rowsVisibles.length} partidos',
                 style: const TextStyle(
                   fontWeight: FontWeight.bold,
                   fontSize: 13,
@@ -1786,7 +1793,7 @@ class _DerbyGridScreenState extends State<DerbyGridScreen> {
           Expanded(
             child: Center(
               child: Text(
-                'Depósitos: $pagados/${_rows.length} pagados'
+                'Depósitos: $pagados/${_rowsVisibles.length} pagados'
                 '  ·  \$${montoTotal.toStringAsFixed(0)} recaudado',
                 style: TextStyle(
                   fontSize: 12,
