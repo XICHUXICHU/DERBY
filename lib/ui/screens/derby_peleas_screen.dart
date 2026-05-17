@@ -121,6 +121,9 @@ class _DerbyPeleasScreenState extends State<DerbyPeleasScreen> {
   /// Mapa: partidoId -> color asignado
   final Map<int, Color> _colorMap = {};
 
+  /// Mapa: partidoId -> partido (incluye comodines) — para lookup de nombres
+  final Map<int, domain.Partido> _allPartidosMap = {};
+
   @override
   void initState() {
     super.initState();
@@ -141,7 +144,29 @@ class _DerbyPeleasScreenState extends State<DerbyPeleasScreen> {
     _puntosDerrota = derbyData.puntosDerrota;
 
     final partidosDb = await partidoRepository.listarPorDerby(widget.derby.id);
+
+    // Mapa con TODOS los partidos (incluidos comodines) para lookups de nombre/color.
+    _allPartidosMap.clear();
+    for (final p in partidosDb) {
+      _allPartidosMap[p.id] = domain.Partido(
+        id: p.id,
+        nombre: p.nombre,
+        responsable: p.responsable,
+        telefono: p.telefono,
+        estado: domain.EstadoPartido.values.firstWhere(
+          (e) => e.name == p.estado,
+          orElse: () => domain.EstadoPartido.activo,
+        ),
+        puntos: p.puntos,
+        eliminado: p.eliminado,
+        depositoPagado: p.depositoPagado,
+        depositoCantidad: p.depositoCantidad,
+        esComodin: p.esComodin,
+      );
+    }
+
     _partidos = partidosDb
+        .where((p) => !p.esComodin)
         .map(
           (p) => domain.Partido(
             id: p.id,
@@ -333,10 +358,9 @@ class _DerbyPeleasScreenState extends State<DerbyPeleasScreen> {
     final info = infos[enfIdx.clamp(0, infos.length - 1)];
     if (info.resultado != null) return;
 
-    final rivalPartido = _partidos.firstWhere(
-      (p) => p.id == info.rivalPartidoId,
-    );
-    final miPartido = _partidos.firstWhere((p) => p.id == partidoId);
+    final rivalPartido = _allPartidosMap[info.rivalPartidoId];
+    final miPartido = _allPartidosMap[partidoId];
+    if (rivalPartido == null || miPartido == null) return;
 
     if (!mounted) return;
 
@@ -2184,12 +2208,7 @@ class _DerbyPeleasScreenState extends State<DerbyPeleasScreen> {
     final rivalColor = _colorMap[info.rivalPartidoId] ?? _kGrey;
     final hasResult = info.resultado != null;
     final label = hasResult ? _resultadoLabel(info) : '?';
-    final rivalNombre =
-        _partidos
-            .where((p) => p.id == info.rivalPartidoId)
-            .map((p) => p.nombre)
-            .firstOrNull ??
-        '';
+    final rivalNombre = _allPartidosMap[info.rivalPartidoId]?.nombre ?? '';
 
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
