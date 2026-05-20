@@ -26,8 +26,25 @@ class _ActivationScreenState extends State<ActivationScreen> {
   }
 
   Future<void> _activate() async {
-    final code = _codeController.text.trim();
+    final raw = _codeController.text.trim();
+    // Los códigos RSA contienen '.' y son case-sensitive (base64 con mayúsculas/minúsculas)
+    // Los códigos Firestore son todo mayúsculas
+    final isRsa = raw.contains('.') && raw.toUpperCase().startsWith('DERBY-');
+    final code = isRsa ? raw : raw.toUpperCase().replaceAll(' ', '');
+
     if (code.isEmpty) return;
+
+    // Validar formato: DERB-TYPE-XXXX-XXXX-XXXX-XXXX  O  DERBY-{base64}.{base64}
+    final firestoreFormat = RegExp(
+        r'^DERB-[A-Z0-9]+-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}$');
+    final rsaFormat = RegExp(r'^DERBY-[A-Za-z0-9+/=]+\.[A-Za-z0-9+/=]+$');
+    if (!firestoreFormat.hasMatch(code) && !rsaFormat.hasMatch(code)) {
+      setState(() {
+        _errorMessage = 'Formato de código inválido.\n'
+            'Copia el código exactamente como te lo compartieron.';
+      });
+      return;
+    }
 
     setState(() {
       _isLoading = true;
@@ -124,9 +141,10 @@ class _ActivationScreenState extends State<ActivationScreen> {
                       ),
                     TextField(
                       controller: _codeController,
+                      textCapitalization: TextCapitalization.characters,
                       decoration: const InputDecoration(
                         labelText: 'Clave del Producto',
-                        hintText: 'Ej. DERB-XXXX-XXXX-XXXX',
+                        hintText: 'Ej. DERB-1M-XXXX-XXXX-XXXX-XXXX',
                         border: OutlineInputBorder(),
                         prefixIcon: Icon(Icons.key),
                       ),

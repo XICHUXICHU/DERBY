@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../main.dart' show derbyRepository;
 import '../../data/database/app_database.dart';
-import '../../data/seed_data.dart';
 
 /// Pantalla de configuración del derby.
 ///
@@ -38,7 +37,6 @@ class _DerbyConfigFormScreenState extends State<DerbyConfigFormScreen> {
   late bool _permitirRepeticiones;
   late final TextEditingController _difMaxPesoCtrl;
   late bool _validacionEstricta;
-  bool _precargarDatos = true; // Precargar datos de prueba
 
   @override
   void initState() {
@@ -125,7 +123,7 @@ class _DerbyConfigFormScreenState extends State<DerbyConfigFormScreen> {
           validacionEstricta: _validacionEstricta,
         );
       } else {
-        final nuevoId = await derbyRepository.crear(
+        await derbyRepository.crear(
           nombre: nombre,
           rondasTotales: rondas,
           puntosVictoria: pG,
@@ -139,11 +137,6 @@ class _DerbyConfigFormScreenState extends State<DerbyConfigFormScreen> {
           diferenciaMaxPeso: difMaxPeso,
           validacionEstricta: _validacionEstricta,
         );
-
-        // Sembrar datos de prueba si está activado
-        if (_precargarDatos) {
-          await SeedData.sembrar(nuevoId);
-        }
       }
 
       if (mounted) Navigator.pop(context, true);
@@ -501,24 +494,6 @@ class _DerbyConfigFormScreenState extends State<DerbyConfigFormScreen> {
                     ),
                   ),
 
-                  // ── DATOS DE PRUEBA ─────────────────
-                  if (!widget.esEdicion) ...[
-                    const SizedBox(height: 12),
-                    Card(
-                      color: Theme.of(context).colorScheme.tertiaryContainer,
-                      child: SwitchListTile(
-                        title: const Text('Precargar datos de prueba'),
-                        subtitle: const Text(
-                          '30 partidos con 4 gallos cada uno '
-                          '(1 base 2.2kg y 3 libres 2.0-2.5kg).',
-                        ),
-                        value: _precargarDatos,
-                        onChanged: (v) => setState(() => _precargarDatos = v),
-                        secondary: const Icon(Icons.science),
-                      ),
-                    ),
-                  ],
-
                   const SizedBox(height: 40),
 
                   // ── RESUMEN ─────────────────────────
@@ -613,11 +588,7 @@ class _DerbyConfigFormScreenState extends State<DerbyConfigFormScreen> {
               'Validación',
               _validacionEstricta ? 'Estricta' : 'Flexible',
             ),
-            if (!widget.esEdicion)
-              _resumenItem(
-                'Datos prueba',
-                _precargarDatos ? '8 partidos (32 gallos)' : 'No',
-              ),
+
           ],
         ),
       ),
