@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import '../../core/security/hardware_id_service.dart';
 import '../../core/security/license_manager.dart';
 import 'home_screen.dart';
 
@@ -15,6 +17,7 @@ class _ActivationScreenState extends State<ActivationScreen> {
   final _codeController = TextEditingController();
   bool _isLoading = false;
   String? _errorMessage;
+  String? _hardwareId;
 
   @override
   void initState() {
@@ -23,6 +26,12 @@ class _ActivationScreenState extends State<ActivationScreen> {
         widget.initialError!.status != LicenseStatus.unregistered) {
       _errorMessage = widget.initialError!.message;
     }
+    _loadHardwareId();
+  }
+
+  Future<void> _loadHardwareId() async {
+    final id = await HardwareIdService.generateHardwareId();
+    if (mounted) setState(() => _hardwareId = id);
   }
 
   Future<void> _activate() async {
@@ -173,6 +182,57 @@ class _ActivationScreenState extends State<ActivationScreen> {
                       textAlign: TextAlign.center,
                       style: TextStyle(fontSize: 12, color: Colors.grey),
                     ),
+                    if (_hardwareId != null) ...[  
+                      const SizedBox(height: 24),
+                      const Divider(),
+                      const SizedBox(height: 8),
+                      const Text(
+                        'ID de esta computadora',
+                        style: TextStyle(fontSize: 12, color: Colors.grey),
+                      ),
+                      const SizedBox(height: 6),
+                      GestureDetector(
+                        onTap: () {
+                          Clipboard.setData(ClipboardData(text: _hardwareId!));
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('ID copiado al portapapeles'),
+                              duration: Duration(seconds: 2),
+                            ),
+                          );
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: Colors.grey.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(color: Colors.grey.withOpacity(0.3)),
+                          ),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  _hardwareId!,
+                                  style: const TextStyle(
+                                    fontFamily: 'monospace',
+                                    fontSize: 11,
+                                    color: Colors.grey,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                              const Icon(Icons.copy, size: 14, color: Colors.grey),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      const Text(
+                        'Comparte este ID con el administrador\nsi la licencia es para esta PC específica.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(fontSize: 11, color: Colors.grey),
+                      ),
+                    ],
                   ],
                 ),
               ),

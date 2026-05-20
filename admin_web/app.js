@@ -87,10 +87,11 @@ async function generarLicencia() {
     const clientEmail = document.getElementById("client-email2").value.trim();
     const clientRanch = document.getElementById("client-ranch").value.trim();
     const clientNotes = document.getElementById("client-notes").value.trim();
+    const clientHwId = document.getElementById("client-hwid").value.trim();
 
     try {
         await setDoc(doc(db, "Licenses", codigo), {
-            hardware_id: "",
+            hardware_id: clientHwId,
             status: "active",
             expiry_date: expiryDate,
             duration_days: diasSeleccionados,
@@ -146,6 +147,7 @@ function nuevaLicencia() {
     document.getElementById("client-email2").value = '';
     document.getElementById("client-ranch").value = '';
     document.getElementById("client-notes").value = '';
+    document.getElementById("client-hwid").value = '';
     document.getElementById("form-error").innerText = '';
     document.getElementById("result-box").classList.add("hidden");
     document.getElementById("result-loading").classList.remove("hidden");
