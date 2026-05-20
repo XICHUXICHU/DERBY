@@ -108,4 +108,4 @@ msix_config:
   capabilities: internetClient
   rescapabilities: runFullTrust
   output_name: DerbyManager
-  install_certificate: false
+  install_certificate: true

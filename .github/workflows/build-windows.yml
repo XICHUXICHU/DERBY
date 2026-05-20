@@ -35,8 +35,21 @@ jobs:
       - name: Build Windows Release
         run: flutter build windows --release
 
+      - name: Generate self-signed certificate
+        run: |
+          $cert = New-SelfSignedCertificate `
+            -Type Custom `
+            -Subject "CN=Derby2, O=Derby2" `
+            -KeyUsage DigitalSignature `
+            -FriendlyName "Derby2 Code Signing" `
+            -CertStoreLocation "Cert:\CurrentUser\My" `
+            -TextExtension @("2.5.29.37={text}1.3.6.1.5.5.7.3.3", "2.5.29.19={text}")
+          $pwd = ConvertTo-SecureString -String "DerbySign2026!" -Force -AsPlainText
+          Export-PfxCertificate -cert "Cert:\CurrentUser\My\$($cert.Thumbprint)" -FilePath "sign.pfx" -Password $pwd
+        shell: pwsh
+
       - name: Create MSIX Installer
-        run: dart run msix:create
+        run: dart run msix:create --certificate-path sign.pfx --certificate-password DerbySign2026!
 
       - name: Upload MSIX artifact
         uses: actions/upload-artifact@v4
