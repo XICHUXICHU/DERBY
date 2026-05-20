@@ -271,8 +271,7 @@ class LicenseManager {
         await SecureLicenseStorage.clearLicense();
         return result;
       }
-    } catch (e, stack) {
-      print('Error activando licencia: $e\n$stack');
+    } catch (e) {
       return LicenseValidationResult(
         status: LicenseStatus.offlineExpired,
         message: 'Error de conexión: ${e.toString().split('\n').first}',
@@ -374,8 +373,12 @@ TwIDAQAB
 
       return LicenseValidationResult(status: LicenseStatus.valid);
     } catch (e) {
-      // Si falla algo inesperado, usar estado guardado localmente
-      return _validateOffline();
+      // Si falla algo inesperado en el parsing/validación, la licencia es inválida.
+      // NO usar _validateOffline() — una excepción aquí no concede gracia.
+      return LicenseValidationResult(
+        status: LicenseStatus.unregistered,
+        message: 'Licencia inválida o corrupta.',
+      );
     }
   }
 

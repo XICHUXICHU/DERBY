@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 import 'package:crypto/crypto.dart';
+import 'package:cryptography/cryptography.dart' hide Hmac;
 import 'package:path_provider/path_provider.dart';
 import 'hardware_id_service.dart';
 
@@ -38,12 +39,12 @@ class SecureLicenseStorage {
       if (!await file.exists()) return {};
       final raw = await file.readAsBytes();
       final key = await _deriveKey();
-      // Descifrar
-      final decoded = _xorBytes(raw, key);
+      final decoded = await _decrypt(raw, key);
       final jsonStr = utf8.decode(decoded);
       final map = json.decode(jsonStr) as Map<String, dynamic>;
       return map.map((k, v) => MapEntry(k, v.toString()));
     } catch (_) {
+      // Archivo corrupto o formato antiguo (XOR) — el usuario deberá reactivar
       return {};
     }
   }
@@ -51,19 +52,30 @@ class SecureLicenseStorage {
   static Future<void> _writeAll(Map<String, String> data) async {
     final file = await _getFile();
     final jsonStr = json.encode(data);
-    final raw = utf8.encode(jsonStr);
     final key = await _deriveKey();
-    // Cifrar
-    final encoded = _xorBytes(raw, key);
+    final encoded = await _encrypt(utf8.encode(jsonStr), key);
     await file.writeAsBytes(encoded, flush: true);
   }
 
-  static List<int> _xorBytes(List<int> data, List<int> key) {
-    final result = List<int>.filled(data.length, 0);
-    for (var i = 0; i < data.length; i++) {
-      result[i] = data[i] ^ key[i % key.length];
-    }
-    return result;
+  /// Cifra con AES-256-GCM. Formato de salida: [12 nonce][ciphertext][16 MAC]
+  static Future<Uint8List> _encrypt(List<int> plaintext, Uint8List key) async {
+    final algorithm = AesGcm.with256bits();
+    final secretKey = await algorithm.newSecretKeyFromBytes(key);
+    final secretBox = await algorithm.encrypt(plaintext, secretKey: secretKey);
+    return Uint8List.fromList(secretBox.concatenation());
+  }
+
+  /// Descifra AES-256-GCM y verifica el MAC. Lanza si los datos están alterados.
+  static Future<Uint8List> _decrypt(List<int> ciphertext, Uint8List key) async {
+    final algorithm = AesGcm.with256bits();
+    final secretKey = await algorithm.newSecretKeyFromBytes(key);
+    final secretBox = SecretBox.fromConcatenation(
+      ciphertext,
+      nonceLength: 12,
+      macLength: 16,
+    );
+    final decrypted = await algorithm.decrypt(secretBox, secretKey: secretKey);
+    return Uint8List.fromList(decrypted);
   }
 
   /// Saves the active license details securely
