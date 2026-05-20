@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../main.dart' show derbyRepository;
 import '../../data/database/app_database.dart';
@@ -22,12 +23,24 @@ class _HomeScreenState extends State<HomeScreen> {
   String? _licenseCode;
   DateTime? _expiryDate;
   int _daysRemaining = 0;
+  Timer? _revalidationTimer;
 
   @override
   void initState() {
     super.initState();
     _cargarDerbys();
     _loadLicenseInfo();
+    // Revalida cada 4 horas — detecta licencias Firestore revocadas o expiradas
+    _revalidationTimer = Timer.periodic(
+      const Duration(hours: 4),
+      (_) => _revalidateLicense(),
+    );
+  }
+
+  @override
+  void dispose() {
+    _revalidationTimer?.cancel();
+    super.dispose();
   }
 
   Future<void> _loadLicenseInfo() async {
@@ -58,7 +71,7 @@ class _HomeScreenState extends State<HomeScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Clave: ${_licenseCode ?? 'Desconocida'}',
+              'Clave: ${_maskCode(_licenseCode)}',
               style: const TextStyle(fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 12),
@@ -121,6 +134,35 @@ class _HomeScreenState extends State<HomeScreen> {
         ],
       ),
     );
+  }
+
+  /// Revalida la licencia en segundo plano. Si expiró o fue revocada, redirige.
+  Future<void> _revalidateLicense() async {
+    final result = await LicenseManager.checkCurrentLicense();
+    if (!mounted) return;
+    if (result.status != LicenseStatus.valid &&
+        result.status != LicenseStatus.offlineGracePeriod) {
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(
+          builder: (_) => ActivationScreen(initialError: result),
+        ),
+      );
+    }
+  }
+
+  /// Enmascara el código de licencia — no exponer el token RSA completo en la UI.
+  String _maskCode(String? code) {
+    if (code == null) return 'Desconocida';
+    if (code.contains('.')) {
+      // RSA: DERBY-{base64}.{sig} — mostrar prefijo + últimos 6 chars
+      final prefix = code.length > 12 ? code.substring(0, 12) : code;
+      final suffix = code.length > 6 ? code.substring(code.length - 6) : '';
+      return '$prefix...$suffix';
+    }
+    // Firestore: DERB-1M-XXXX-XXXX-XXXX-XXXX — ocultar últimos 2 grupos
+    final parts = code.split('-');
+    if (parts.length >= 6) return '${parts.take(4).join('-')}-****-****';
+    return '${code.substring(0, code.length.clamp(0, 8))}...';
   }
 
   Future<void> _cargarDerbys() async {

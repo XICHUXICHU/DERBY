@@ -329,13 +329,18 @@ TwIDAQAB
         );
       }
 
-      // Decodificar payload
-      final payloadJson = utf8.decode(base64Decode(payloadBase64));
+      // Decodificar payload (normalizar padding base64 si el admin omitió '=')
+      final payloadJson = utf8.decode(base64Decode(_normBase64(payloadBase64)));
       final payload = jsonDecode(payloadJson) as Map<String, dynamic>;
 
-      final DateTime expiryDate = payload['expiresAt'] != null
-          ? DateTime.parse(payload['expiresAt'] as String)
-          : DateTime(2099, 12, 31); // lifetime
+      // expiresAt es obligatorio — una licencia sin expiración es un error del admin
+      if (payload['expiresAt'] == null) {
+        return LicenseValidationResult(
+          status: LicenseStatus.unregistered,
+          message: 'Licencia malformada: falta fecha de expiración.',
+        );
+      }
+      final DateTime expiryDate = DateTime.parse(payload['expiresAt'] as String);
 
       // Hora segura (servidor si disponible, local como respaldo)
       DateTime now;
@@ -382,6 +387,12 @@ TwIDAQAB
     }
   }
 
+  /// Normaliza padding de base64 estándar (agrega '=' faltantes).
+  static String _normBase64(String s) {
+    final rem = s.length % 4;
+    return rem == 0 ? s : s + '=' * (4 - rem);
+  }
+
   /// Verifica la firma RSA-SHA256 del payload.
   static bool _verifyRSASignature(
       String payloadBase64, String signatureBase64) {
@@ -389,8 +400,8 @@ TwIDAQAB
       final publicKey = _parseRSAPublicKey(_rsaPublicKey);
       final signer = RSASigner(SHA256Digest(), '0609608648016503040201');
       signer.init(false, PublicKeyParameter<RSAPublicKey>(publicKey));
-      final payloadBytes = Uint8List.fromList(base64Decode(payloadBase64));
-      final signatureBytes = Uint8List.fromList(base64Decode(signatureBase64));
+      final payloadBytes = Uint8List.fromList(base64Decode(_normBase64(payloadBase64)));
+      final signatureBytes = Uint8List.fromList(base64Decode(_normBase64(signatureBase64)));
       return signer.verifySignature(payloadBytes, RSASignature(signatureBytes));
     } catch (_) {
       return false;

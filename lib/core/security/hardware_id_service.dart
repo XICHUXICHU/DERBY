@@ -100,11 +100,11 @@ class HardwareIdService {
   static Future<String> _getGenericDeviceId() async {
     if (Platform.isWindows) {
       final info = await _deviceInfoPlugin.windowsInfo;
-      return '${info.computerName}_${info.numberOfCores}_${info.systemMemoryInMegabytes}';
+      return '${info.computerName}_${info.numberOfCores}';
     } else if (Platform.isMacOS) {
       final info = await _deviceInfoPlugin.macOsInfo;
       return '${info.computerName}_${info.model}_${info.memorySize}';
     }
-    return DateTime.now().millisecondsSinceEpoch.toString(); // Worst case scenario
+    return 'unknown_${Platform.operatingSystem}'; // último recurso — estable entre llamadas
   }
 }

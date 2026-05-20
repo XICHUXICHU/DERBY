@@ -59,15 +59,7 @@ class _ActivationScreenState extends State<ActivationScreen> {
       _isLoading = false;
     });
 
-    if (result.status == LicenseStatus.valid ||
-        result.status == LicenseStatus.offlineGracePeriod) {
-      if (result.status == LicenseStatus.offlineGracePeriod) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(result.message ?? 'Activado (Modo Sin Conexión)'),
-          ),
-        );
-      }
+    if (result.status == LicenseStatus.valid) {
       Navigator.of(
         context,
       ).pushReplacement(MaterialPageRoute(builder: (_) => const HomeScreen()));

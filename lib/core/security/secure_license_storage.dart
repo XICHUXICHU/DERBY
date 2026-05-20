@@ -1,82 +1,19 @@
-import 'dart:convert';
-import 'dart:io';
-import 'dart:typed_data';
-import 'package:crypto/crypto.dart';
-import 'package:cryptography/cryptography.dart' hide Hmac;
-import 'package:path_provider/path_provider.dart';
-import 'hardware_id_service.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
-/// Almacena la licencia cifrada en disco con clave derivada del hardware.
-/// Cada máquina genera una clave diferente → copiar el archivo no sirve.
+/// Almacena los datos de licencia usando el almacén seguro del sistema operativo.
+/// Windows: Windows Credential Manager con DPAPI (clave inextractable por código)
+/// macOS:   Keychain del sistema
 class SecureLicenseStorage {
-  static const _keyLicenseCode = 'lc';
-  static const _keyLastCheckIn = 'ci';
-  static const _keyLocalExpiry = 'ex';
-  static const _keyCachedHardwareId = 'hw';
-  static const _keyMonotonicCounter = 'mc';
+  static const _kLicenseCode = 'derby_lc';
+  static const _kLastCheckIn = 'derby_ci';
+  static const _kLocalExpiry = 'derby_ex';
+  static const _kCachedHardwareId = 'derby_hw';
+  static const _kMonotonicCounter = 'derby_mc';
 
-  static const _fileName = '.derby_lic.dat';
-  // Salt que se combina con el hardware ID para derivar la clave
-  static const _salt = 'D3rby_Pr0_2026_s4lt!';
-
-  /// Deriva una clave de 32 bytes (256 bits) única por máquina
-  static Future<Uint8List> _deriveKey() async {
-    final hwId = await HardwareIdService.generateHardwareId();
-    // HMAC-SHA256(salt, hardwareId) → clave de 32 bytes única
-    final hmac = Hmac(sha256, utf8.encode(_salt));
-    final digest = hmac.convert(utf8.encode(hwId));
-    return Uint8List.fromList(digest.bytes);
-  }
-
-  static Future<File> _getFile() async {
-    final dir = await getApplicationSupportDirectory();
-    return File('${dir.path}/$_fileName');
-  }
-
-  static Future<Map<String, String>> _readAll() async {
-    try {
-      final file = await _getFile();
-      if (!await file.exists()) return {};
-      final raw = await file.readAsBytes();
-      final key = await _deriveKey();
-      final decoded = await _decrypt(raw, key);
-      final jsonStr = utf8.decode(decoded);
-      final map = json.decode(jsonStr) as Map<String, dynamic>;
-      return map.map((k, v) => MapEntry(k, v.toString()));
-    } catch (_) {
-      // Archivo corrupto o formato antiguo (XOR) — el usuario deberá reactivar
-      return {};
-    }
-  }
-
-  static Future<void> _writeAll(Map<String, String> data) async {
-    final file = await _getFile();
-    final jsonStr = json.encode(data);
-    final key = await _deriveKey();
-    final encoded = await _encrypt(utf8.encode(jsonStr), key);
-    await file.writeAsBytes(encoded, flush: true);
-  }
-
-  /// Cifra con AES-256-GCM. Formato de salida: [12 nonce][ciphertext][16 MAC]
-  static Future<Uint8List> _encrypt(List<int> plaintext, Uint8List key) async {
-    final algorithm = AesGcm.with256bits();
-    final secretKey = await algorithm.newSecretKeyFromBytes(key);
-    final secretBox = await algorithm.encrypt(plaintext, secretKey: secretKey);
-    return Uint8List.fromList(secretBox.concatenation());
-  }
-
-  /// Descifra AES-256-GCM y verifica el MAC. Lanza si los datos están alterados.
-  static Future<Uint8List> _decrypt(List<int> ciphertext, Uint8List key) async {
-    final algorithm = AesGcm.with256bits();
-    final secretKey = await algorithm.newSecretKeyFromBytes(key);
-    final secretBox = SecretBox.fromConcatenation(
-      ciphertext,
-      nonceLength: 12,
-      macLength: 16,
-    );
-    final decrypted = await algorithm.decrypt(secretBox, secretKey: secretKey);
-    return Uint8List.fromList(decrypted);
-  }
+  static const _storage = FlutterSecureStorage(
+    mOptions: MacOsOptions(accessibility: KeychainAccessibility.first_unlock),
+    wOptions: WindowsOptions(),
+  );
 
   /// Saves the active license details securely
   static Future<void> saveLicense({
@@ -85,64 +22,58 @@ class SecureLicenseStorage {
     required DateTime expiryDate,
     required String hardwareId,
   }) async {
-    final data = await _readAll();
-    data[_keyLicenseCode] = licenseCode;
-    data[_keyLastCheckIn] = serverTime.millisecondsSinceEpoch.toString();
-    data[_keyLocalExpiry] = expiryDate.millisecondsSinceEpoch.toString();
-    data[_keyCachedHardwareId] = hardwareId;
-    // Contador monotónico: siempre incrementa, nunca puede retroceder
-    final prevCounter = int.tryParse(data[_keyMonotonicCounter] ?? '0') ?? 0;
+    final prevCounterStr = await _storage.read(key: _kMonotonicCounter);
+    final prevCounter = int.tryParse(prevCounterStr ?? '0') ?? 0;
     final newCounter = serverTime.millisecondsSinceEpoch;
-    data[_keyMonotonicCounter] = (newCounter > prevCounter ? newCounter : prevCounter).toString();
-    await _writeAll(data);
+    await Future.wait([
+      _storage.write(key: _kLicenseCode, value: licenseCode),
+      _storage.write(key: _kLastCheckIn, value: serverTime.millisecondsSinceEpoch.toString()),
+      _storage.write(key: _kLocalExpiry, value: expiryDate.millisecondsSinceEpoch.toString()),
+      _storage.write(key: _kCachedHardwareId, value: hardwareId),
+      _storage.write(
+        key: _kMonotonicCounter,
+        value: (newCounter > prevCounter ? newCounter : prevCounter).toString(),
+      ),
+    ]);
   }
 
   /// Get the stored license code
-  static Future<String?> getLicenseCode() async {
-    final data = await _readAll();
-    return data[_keyLicenseCode];
-  }
+  static Future<String?> getLicenseCode() => _storage.read(key: _kLicenseCode);
 
   /// Get the date when the app last verified the license online
   static Future<DateTime?> getLastCheckIn() async {
-    final data = await _readAll();
-    final val = data[_keyLastCheckIn];
-    if (val != null) {
-      final ms = int.tryParse(val);
-      if (ms != null) return DateTime.fromMillisecondsSinceEpoch(ms);
-    }
-    return null;
+    final val = await _storage.read(key: _kLastCheckIn);
+    if (val == null) return null;
+    final ms = int.tryParse(val);
+    return ms != null ? DateTime.fromMillisecondsSinceEpoch(ms) : null;
   }
 
-  /// Get the official expiration date (from the token/server, not local)
+  /// Get the official expiration date
   static Future<DateTime?> getExpiryDate() async {
-    final data = await _readAll();
-    final val = data[_keyLocalExpiry];
-    if (val != null) {
-      final ms = int.tryParse(val);
-      if (ms != null) return DateTime.fromMillisecondsSinceEpoch(ms);
-    }
-    return null;
+    final val = await _storage.read(key: _kLocalExpiry);
+    if (val == null) return null;
+    final ms = int.tryParse(val);
+    return ms != null ? DateTime.fromMillisecondsSinceEpoch(ms) : null;
   }
 
   /// Get the hardware ID used when the license was activated
-  static Future<String?> getCachedHardwareId() async {
-    final data = await _readAll();
-    return data[_keyCachedHardwareId];
-  }
+  static Future<String?> getCachedHardwareId() => _storage.read(key: _kCachedHardwareId);
 
   /// Get the monotonic counter (always-increasing timestamp)
   /// Used to detect clock rollback attacks
   static Future<int> getMonotonicCounter() async {
-    final data = await _readAll();
-    return int.tryParse(data[_keyMonotonicCounter] ?? '0') ?? 0;
+    final val = await _storage.read(key: _kMonotonicCounter);
+    return int.tryParse(val ?? '0') ?? 0;
   }
 
   /// Wipe the stored license data
   static Future<void> clearLicense() async {
-    try {
-      final file = await _getFile();
-      if (await file.exists()) await file.delete();
-    } catch (_) {}
+    await Future.wait([
+      _storage.delete(key: _kLicenseCode),
+      _storage.delete(key: _kLastCheckIn),
+      _storage.delete(key: _kLocalExpiry),
+      _storage.delete(key: _kCachedHardwareId),
+      _storage.delete(key: _kMonotonicCounter),
+    ]);
   }
 }
