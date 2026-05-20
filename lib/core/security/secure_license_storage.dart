@@ -10,7 +10,7 @@ class SecureLicenseStorage {
   static const _kCachedHardwareId = 'derby_hw';
   static const _kMonotonicCounter = 'derby_mc';
 
-  static const _storage = FlutterSecureStorage(
+  static final _storage = FlutterSecureStorage(
     mOptions: MacOsOptions(accessibility: KeychainAccessibility.first_unlock),
     wOptions: WindowsOptions(),
   );

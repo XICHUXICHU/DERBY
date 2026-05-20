@@ -261,7 +261,9 @@ class _HomeScreenState extends State<HomeScreen> {
                 color: Colors.greenAccent,
               ),
               label: Text(
-                _daysRemaining > 0 ? '$_daysRemaining días' : 'Evaluando...',
+                _daysRemaining > 0
+                    ? '$_daysRemaining días restantes'
+                    : (_expiryDate != null ? 'Menos de 1 día' : 'Sin datos'),
                 style: const TextStyle(fontSize: 12),
               ),
               onPressed: _showLicenseInfo,

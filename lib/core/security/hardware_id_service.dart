@@ -55,16 +55,25 @@ class HardwareIdService {
   /// Extracts Windows Motherboard UUID via PowerShell (wmic is deprecated in Windows 11)
   static Future<String> _getWindowsMotherboardUuid() async {
     // Use PowerShell to get the System UUID — works on Windows 10 and Windows 11
-    final result = await Process.run('powershell', [
-      '-NoProfile',
-      '-NonInteractive',
-      '-Command',
+    // Intentar primero con Get-CimInstance (recomendado en Windows 10/11)
+    // Si falla, intentar con Get-WmiObject como fallback
+    for (final cmd in [
+      '(Get-CimInstance -ClassName Win32_ComputerSystemProduct).UUID',
       '(Get-WmiObject -Class Win32_ComputerSystemProduct).UUID',
-    ]);
-    if (result.exitCode == 0) {
-      final output = result.stdout.toString().trim();
-      if (output.isNotEmpty && output != 'FFFFFFFF-FFFF-FFFF-FFFF-FFFFFFFFFFFF') {
-        return output;
+    ]) {
+      final result = await Process.run('powershell', [
+        '-NoProfile',
+        '-NonInteractive',
+        '-Command',
+        cmd,
+      ]);
+      if (result.exitCode == 0) {
+        final output = result.stdout.toString().trim();
+        if (output.isNotEmpty &&
+            output != 'FFFFFFFF-FFFF-FFFF-FFFF-FFFFFFFFFFFF' &&
+            output.length > 10) {
+          return output;
+        }
       }
     }
     throw Exception('Failed to get Windows UUID via PowerShell');
