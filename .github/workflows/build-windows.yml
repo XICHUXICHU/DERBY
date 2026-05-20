@@ -32,9 +32,6 @@ jobs:
       - name: Generate code (drift)
         run: dart run build_runner build --delete-conflicting-outputs
 
-      - name: Build Windows Release
-        run: flutter build windows --release
-
       - name: Generate self-signed certificate
         run: |
           $cert = New-SelfSignedCertificate `
@@ -49,7 +46,7 @@ jobs:
         shell: pwsh
 
       - name: Create MSIX Installer
-        run: dart run msix:create --no-build --certificate-path sign.pfx --certificate-password DerbySign2026!
+        run: dart run msix:create --certificate-path sign.pfx --certificate-password DerbySign2026!
 
       - name: Upload MSIX artifact
         uses: actions/upload-artifact@v4
