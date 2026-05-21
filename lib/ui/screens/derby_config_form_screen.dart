@@ -139,6 +139,21 @@ class _DerbyConfigFormScreenState extends State<DerbyConfigFormScreen> {
           validacionEstricta: _validacionEstricta,
         );
         AnalyticsService.logDerbyCreated(nombre);
+      }
+
+      if (mounted) Navigator.pop(context, true);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error: $e'),
+            backgroundColor: Theme.of(context).colorScheme.error,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _guardando = false);
+    }
   }
 
   // ── Validadores ──
