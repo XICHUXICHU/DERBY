@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Instalar Derby Pro en Windows</title>
+  <style>
+    :root {
+      --bg: #f4efe6;
+      --ink: #24170f;
+      --muted: #6d5a4c;
+      --card: rgba(255, 252, 247, 0.88);
+      --line: rgba(84, 52, 34, 0.14);
+      --brand: #9b1c1c;
+      --brand-dark: #6f1111;
+      --gold: #d4a63c;
+      --ok: #157347;
+      --warn: #9a6700;
+      --shadow: 0 20px 50px rgba(63, 35, 22, 0.16);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: Georgia, "Times New Roman", serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at top left, rgba(212, 166, 60, 0.2), transparent 32%),
+        radial-gradient(circle at top right, rgba(155, 28, 28, 0.16), transparent 28%),
+        linear-gradient(180deg, #f8f4ec 0%, #efe4d4 100%);
+      min-height: 100vh;
+    }
+
+    .page {
+      width: min(1120px, calc(100% - 32px));
+      margin: 0 auto;
+      padding: 28px 0 48px;
+    }
+
+    .hero {
+      position: relative;
+      overflow: hidden;
+      padding: 40px;
+      border: 1px solid var(--line);
+      border-radius: 28px;
+      background: linear-gradient(135deg, rgba(255,255,255,0.86), rgba(255,247,237,0.92));
+      box-shadow: var(--shadow);
+    }
+
+    .hero::after {
+      content: "";
+      position: absolute;
+      inset: auto -40px -40px auto;
+      width: 260px;
+      height: 260px;
+      background: radial-gradient(circle, rgba(155, 28, 28, 0.14), transparent 65%);
+      pointer-events: none;
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 14px;
+      border-radius: 999px;
+      background: rgba(155, 28, 28, 0.08);
+      color: var(--brand-dark);
+      font-size: 13px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      font-weight: bold;
+    }
+
+    h1 {
+      margin: 18px 0 14px;
+      font-size: clamp(34px, 6vw, 60px);
+      line-height: 0.95;
+      max-width: 720px;
+    }
+
+    .lead {
+      max-width: 700px;
+      font-size: 19px;
+      line-height: 1.65;
+      color: var(--muted);
+      margin: 0;
+    }
+
+    .cta-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 14px;
+      margin-top: 26px;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      min-height: 54px;
+      padding: 0 22px;
+      border-radius: 16px;
+      text-decoration: none;
+      font-weight: bold;
+      border: 1px solid transparent;
+      transition: transform 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
+    }
+
+    .btn:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 10px 24px rgba(59, 27, 18, 0.16);
+    }
+
+    .btn-primary {
+      background: linear-gradient(180deg, #ba2626, var(--brand-dark));
+      color: #fff8f4;
+    }
+
+    .btn-secondary {
+      background: rgba(255,255,255,0.68);
+      border-color: var(--line);
+      color: var(--ink);
+    }
+
+    .meta {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 16px;
+      margin-top: 26px;
+    }
+
+    .meta-card, .card, .notice, .step {
+      border: 1px solid var(--line);
+      background: var(--card);
+      border-radius: 22px;
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(10px);
+    }
+
+    .meta-card {
+      padding: 20px;
+    }
+
+    .meta-label {
+      color: var(--muted);
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 6px;
+      font-weight: bold;
+    }
+
+    .meta-value {
+      font-size: 20px;
+      font-weight: bold;
+    }
+
+    .section {
+      margin-top: 28px;
+    }
+
+    .section-head {
+      display: flex;
+      align-items: end;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+
+    .section-head h2 {
+      margin: 0;
+      font-size: 28px;
+    }
+
+    .section-head p {
+      margin: 0;
+      color: var(--muted);
+      max-width: 620px;
+      line-height: 1.6;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 16px;
+    }
+
+    .step {
+      padding: 22px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .step-number {
+      width: 48px;
+      height: 48px;
+      border-radius: 14px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      background: linear-gradient(180deg, rgba(155,28,28,0.12), rgba(212,166,60,0.14));
+      color: var(--brand-dark);
+      font-size: 22px;
+      font-weight: bold;
+      margin-bottom: 16px;
+    }
+
+    .step h3, .card h3 {
+      margin: 0 0 10px;
+      font-size: 22px;
+    }
+
+    .step p, .card p, .notice p, li {
+      line-height: 1.65;
+      color: var(--muted);
+      margin: 0;
+    }
+
+    .step ul, .card ul {
+      margin: 12px 0 0;
+      padding-left: 18px;
+    }
+
+    .card {
+      padding: 24px;
+    }
+
+    .notice {
+      padding: 22px 24px;
+      display: flex;
+      gap: 14px;
+      align-items: flex-start;
+    }
+
+    .notice.ok { border-color: rgba(21, 115, 71, 0.25); background: rgba(238, 251, 243, 0.88); }
+    .notice.warn { border-color: rgba(154, 103, 0, 0.25); background: rgba(255, 248, 230, 0.9); }
+
+    .notice-mark {
+      flex: 0 0 42px;
+      width: 42px;
+      height: 42px;
+      border-radius: 12px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 22px;
+      font-weight: bold;
+      background: rgba(255,255,255,0.78);
+    }
+
+    .download-box {
+      display: grid;
+      grid-template-columns: 1.2fr 0.8fr;
+      gap: 16px;
+      align-items: stretch;
+    }
+
+    .chip-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 14px;
+    }
+
+    .chip {
+      padding: 8px 12px;
+      border-radius: 999px;
+      background: rgba(36, 23, 15, 0.06);
+      color: var(--ink);
+      font-size: 13px;
+      border: 1px solid rgba(36, 23, 15, 0.08);
+    }
+
+    .support {
+      margin-top: 22px;
+      text-align: center;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .support a { color: var(--brand-dark); }
+
+    @media (max-width: 860px) {
+      .meta, .grid, .download-box { grid-template-columns: 1fr; }
+      .hero { padding: 28px 22px; }
+      .page { width: min(100% - 20px, 1120px); }
+      .section-head { display: block; }
+      h1 { line-height: 1.02; }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <section class="hero">
+      <div class="eyebrow">Instalación oficial de Derby Pro</div>
+      <h1>Guía rápida para instalar Derby Pro en Windows</h1>
+      <p class="lead">
+        Sigue estos pasos en orden. La instalación toma de 3 a 5 minutos. Si Windows muestra una advertencia de seguridad,
+        es normal: solo hay que confiar el certificado una vez.
+      </p>
+      <div class="cta-row">
+        <a class="btn btn-primary" href="https://firebasestorage.googleapis.com/v0/b/derby2-6f83a.firebasestorage.app/o/DerbyManager.msix?alt=media" target="_blank" rel="noopener noreferrer">Descargar instalador .msix</a>
+        <a class="btn btn-secondary" href="#pasos">Ver instrucciones</a>
+      </div>
+      <div class="meta">
+        <div class="meta-card">
+          <div class="meta-label">Archivo</div>
+          <div class="meta-value">DerbyManager.msix</div>
+        </div>
+        <div class="meta-card">
+          <div class="meta-label">Sistema</div>
+          <div class="meta-value">Windows 10 / 11</div>
+        </div>
+        <div class="meta-card">
+          <div class="meta-label">Tiempo estimado</div>
+          <div class="meta-value">3 a 5 min</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="pasos">
+      <div class="section-head">
+        <h2>Instalación paso a paso</h2>
+        <p>Haz cada paso exactamente en este orden para evitar errores al abrir el instalador.</p>
+      </div>
+      <div class="grid">
+        <article class="step">
+          <div class="step-number">1</div>
+          <h3>Descarga el instalador</h3>
+          <p>Haz clic en el botón de descarga y guarda el archivo <strong>DerbyManager.msix</strong> en tu carpeta Descargas.</p>
+          <div class="chip-row">
+            <span class="chip">No cambies el nombre del archivo</span>
+            <span class="chip">No lo abras desde el navegador</span>
+          </div>
+        </article>
+
+        <article class="step">
+          <div class="step-number">2</div>
+          <h3>Abre Propiedades del archivo</h3>
+          <p>Busca el archivo descargado, haz clic derecho sobre él y entra a <strong>Propiedades</strong>. Luego abre la pestaña <strong>Firmas digitales</strong>.</p>
+        </article>
+
+        <article class="step">
+          <div class="step-number">3</div>
+          <h3>Instala el certificado</h3>
+          <ul>
+            <li>Selecciona la firma y presiona <strong>Detalles</strong>.</li>
+            <li>Haz clic en <strong>Ver certificado</strong>.</li>
+            <li>Presiona <strong>Instalar certificado...</strong>.</li>
+            <li>Elige <strong>Máquina local</strong>.</li>
+            <li>Selecciona <strong>Colocar todos los certificados en el siguiente almacén</strong>.</li>
+            <li>Escoge <strong>Entidades de certificación raíz de confianza</strong>.</li>
+          </ul>
+        </article>
+
+        <article class="step">
+          <div class="step-number">4</div>
+          <h3>Confirma la advertencia</h3>
+          <p>Windows mostrará un aviso de seguridad. Acepta la instalación del certificado. Esto solo se hace una vez en la computadora.</p>
+        </article>
+
+        <article class="step">
+          <div class="step-number">5</div>
+          <h3>Ejecuta el instalador</h3>
+          <p>Haz doble clic en <strong>DerbyManager.msix</strong>. Cuando aparezca la ventana del instalador, presiona <strong>Instalar</strong>.</p>
+        </article>
+
+        <article class="step">
+          <div class="step-number">6</div>
+          <h3>Activa tu licencia</h3>
+          <p>Al abrir Derby Pro, pega tu clave de licencia. Si tu licencia fue asignada a una computadora específica, usa ese mismo equipo.</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <h2>Qué hacer si Windows bloquea la instalación</h2>
+        <p>Los dos bloqueos más comunes son estos. Ambos tienen solución rápida.</p>
+      </div>
+      <div class="download-box">
+        <div class="card">
+          <h3>Si aparece “Error al analizar el paquete de la aplicación”</h3>
+          <ul>
+            <li>Vuelve a Propiedades del archivo.</li>
+            <li>Revisa que sí instalaste el certificado en <strong>Entidades de certificación raíz de confianza</strong>.</li>
+            <li>Cierra la ventana y abre otra vez el archivo <strong>.msix</strong>.</li>
+          </ul>
+        </div>
+        <div class="card">
+          <h3>Si aparece “Windows protegió tu PC”</h3>
+          <ul>
+            <li>Haz clic en <strong>Más información</strong>.</li>
+            <li>Luego pulsa <strong>Ejecutar de todas formas</strong> o continúa con la instalación.</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="notice ok">
+        <div class="notice-mark">✓</div>
+        <div>
+          <p><strong>Después de instalar</strong>, ya puedes abrir Derby Pro desde el menú Inicio como cualquier programa normal de Windows.</p>
+        </div>
+      </div>
+      <div class="notice warn" style="margin-top:16px;">
+        <div class="notice-mark">!</div>
+        <div>
+          <p><strong>Importante:</strong> si te compartieron una licencia vinculada a una sola computadora, no intentes activarla en otra PC porque Windows mostrará la instalación normal, pero la app rechazará la licencia.</p>
+        </div>
+      </div>
+    </section>
+
+    <p class="support">
+      Si necesitas ayuda durante la instalación, contacta al administrador que te compartió este enlace.
+    </p>
+  </main>
+</body>
+</html>

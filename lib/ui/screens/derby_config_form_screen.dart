@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../main.dart' show derbyRepository;
 import '../../data/database/app_database.dart';
+import '../../core/analytics_service.dart';
 
 /// Pantalla de configuración del derby.
 ///
@@ -137,21 +138,7 @@ class _DerbyConfigFormScreenState extends State<DerbyConfigFormScreen> {
           diferenciaMaxPeso: difMaxPeso,
           validacionEstricta: _validacionEstricta,
         );
-      }
-
-      if (mounted) Navigator.pop(context, true);
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error: $e'),
-            backgroundColor: Theme.of(context).colorScheme.error,
-          ),
-        );
-      }
-    } finally {
-      if (mounted) setState(() => _guardando = false);
-    }
+        AnalyticsService.logDerbyCreated(nombre);
   }
 
   // ── Validadores ──

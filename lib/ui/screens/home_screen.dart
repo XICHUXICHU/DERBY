@@ -4,6 +4,7 @@ import '../../main.dart' show derbyRepository;
 import '../../data/database/app_database.dart';
 import '../../core/security/secure_license_storage.dart';
 import '../../core/security/license_manager.dart';
+import '../../core/analytics_service.dart';
 import 'derby_grid_screen.dart';
 import 'derby_config_form_screen.dart';
 import 'activation_screen.dart';
@@ -30,6 +31,7 @@ class _HomeScreenState extends State<HomeScreen> {
     super.initState();
     _cargarDerbys();
     _loadLicenseInfo();
+    AnalyticsService.logAppOpen();
     // Revalida cada 4 horas — detecta licencias Firestore revocadas o expiradas
     _revalidationTimer = Timer.periodic(
       const Duration(hours: 4),
