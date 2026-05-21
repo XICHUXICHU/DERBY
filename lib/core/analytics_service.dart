@@ -2,7 +2,6 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:device_info_plus/device_info_plus.dart';
-import 'package:flutter/foundation.dart' show kReleaseMode;
 import 'security/secure_license_storage.dart';
 
 /// Envía eventos de uso anónimos a Firestore para que el admin
@@ -33,7 +32,6 @@ class AnalyticsService {
 
   static Future<void> _send(
       String type, Map<String, dynamic> extra) async {
-    if (!kReleaseMode) return; // No enviar en debug ni en pruebas
     try {
       final info = await _deviceInfo();
       final licenseCode = await SecureLicenseStorage.getLicenseCode();
