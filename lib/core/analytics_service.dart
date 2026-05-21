@@ -54,19 +54,27 @@ class AnalyticsService {
 
   static Future<Map<String, String>> _deviceInfo() async {
     try {
+      final plugin = DeviceInfoPlugin();
       if (Platform.isWindows) {
-        final info = await DeviceInfoPlugin().windowsInfo;
+        final info = await plugin.windowsInfo;
         return {
           'computer_name': info.computerName,
           'windows_version': '${info.productName} (build ${info.buildNumber})',
-          'hardware_id': info.computerName, // se complementa con hwId de storage
+          'hardware_id': info.computerName,
+        };
+      } else if (Platform.isMacOS) {
+        final info = await plugin.macOsInfo;
+        return {
+          'computer_name': info.computerName,
+          'windows_version': 'macOS ${info.osRelease}',
+          'hardware_id': info.computerName,
         };
       }
     } catch (_) {}
     return {
-      'computer_name': 'desconocido',
+      'computer_name': Platform.localHostname,
       'windows_version': Platform.operatingSystemVersion,
-      'hardware_id': 'desconocido',
+      'hardware_id': Platform.localHostname,
     };
   }
 
