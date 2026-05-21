@@ -231,9 +231,9 @@ async function loadEvents() {
 
 // ── Stats ────────────────────────────────────────────────────────────────────
 function updateStats() {
-  const opens  = allEvents.filter(e => e.type?.stringValue === 'app_open').length;
-  const derbys = allEvents.filter(e => e.type?.stringValue === 'derby_created').length;
-  const pcs    = new Set(allEvents.map(e => e.computer_name?.stringValue)).size;
+  const opens  = allEvents.filter(e => e.type === 'app_open').length;
+  const derbys = allEvents.filter(e => e.type === 'derby_created').length;
+  const pcs    = new Set(allEvents.map(e => e.computer_name).filter(Boolean)).size;
   document.getElementById('s-total').innerText  = allEvents.length;
   document.getElementById('s-opens').innerText  = opens;
   document.getElementById('s-derbys').innerText = derbys;
@@ -247,9 +247,9 @@ function renderTable() {
   const computerF = document.getElementById('filter-computer').value.toLowerCase();
 
   const filtered = allEvents.filter(e => {
-    const type     = e.type?.stringValue ?? '';
-    const license  = e.license_code?.stringValue ?? '';
-    const computer = e.computer_name?.stringValue ?? '';
+    const type     = e.type ?? '';
+    const license  = e.license_code ?? '';
+    const computer = e.computer_name ?? '';
     if (typeF     && type     !== typeF)                        return false;
     if (licenseF  && !license.toLowerCase().includes(licenseF)) return false;
     if (computerF && !computer.toLowerCase().includes(computerF)) return false;
@@ -269,14 +269,14 @@ function renderTable() {
   document.getElementById('empty-msg').style.display = 'none';
 
   filtered.forEach(e => {
-    const type     = e.type?.stringValue ?? '';
-    const ts       = e.timestamp?.timestampValue
-      ? new Date(e.timestamp.timestampValue).toLocaleString('es-MX')
+    const type     = e.type ?? '';
+    const ts       = e.timestamp
+      ? e.timestamp.toDate().toLocaleString('es-MX')
       : '—';
-    const license  = e.license_code?.stringValue  ?? '—';
-    const computer = e.computer_name?.stringValue ?? '—';
-    const winver   = e.windows_version?.stringValue ?? '—';
-    const derby    = e.derby_nombre?.stringValue ?? '';
+    const license  = e.license_code ?? '—';
+    const computer = e.computer_name ?? '—';
+    const winver   = e.windows_version ?? '—';
+    const derby    = e.derby_nombre ?? '';
 
     const badgeClass = type === 'app_open' ? 'badge-open' : 'badge-derby';
     const badgeLabel = type === 'app_open' ? 'Apertura' : 'Derby creado';
